@@ -135,7 +135,7 @@ def build_vocab(
         for x in words:
             x = str(x)
             x = x.replace("d_s", "d_")
-            new_words.extend(x.split(", "))
+            new_words.extend(x.replace(" ", "").split(","))
 
         print("exact word number: ", len(new_words))
 
@@ -155,6 +155,6 @@ def build_vocab(
 
     vocab = Vocab(counter, min_freq=min_freq, specials=specials, specials_first=True)
 
-    print("Completed vocabulary")
+    print(f"Completed vocabulary: {len(vocab)} vocabs")
 
     return vocab
