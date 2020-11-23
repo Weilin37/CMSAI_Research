@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 import torch
 from torch import nn
@@ -31,7 +32,7 @@ def training_process(model, epoch, dataloaders: dict, save_model=None, test=Fals
         else nn.CrossEntropyLoss()
     )
 
-    lr = 0.001
+    lr = 0.002
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1, gamma=0.9)
 
@@ -154,41 +155,43 @@ def epoch_val(model, dataloader, optimizer, criterion, test):
 
     if test:
         counter = 0
-    for idx, [ids, seq, labels, mask] in enumerate(dataloader):
-        # data formatting/loading
-        labels = labels.squeeze().long()
-        events.extend(seq.view(seq.size()[0], -1).squeeze().numpy())
+        
+    with torch.no_grad():
+        for idx, [ids, seq, labels, mask] in enumerate(dataloader):
+            # data formatting/loading
+            labels = labels.squeeze().long()
+            events.extend(seq.view(seq.size()[0], -1).squeeze().numpy())
 
-        if (
-            isinstance(model, nn.DataParallel) and model.module.device_type == "gpu"
-        ) or (not isinstance(model, nn.DataParallel) and model.device_type == "gpu"):
-            seq, labels, mask = seq.cuda(), labels.cuda(), mask.cuda()
+            if (
+                isinstance(model, nn.DataParallel) and model.module.device_type == "gpu"
+            ) or (not isinstance(model, nn.DataParallel) and model.device_type == "gpu"):
+                seq, labels, mask = seq.cuda(), labels.cuda(), mask.cuda()
 
-        predictions, importance = model(seq, mask=mask)
+            predictions, importance = model(seq, mask=mask)
 
-        loss = criterion(predictions, labels)
+            loss = criterion(predictions, labels)
 
-        important_scores.extend(importance.detach().cpu().numpy())
-        order_labels.extend(labels.cpu().numpy())
-        prediction_scores.extend(
-            F.softmax(predictions, dim=-1).detach().cpu().numpy()[:, 1]
-        )
+            important_scores.extend(importance.detach().cpu().numpy())
+            order_labels.extend(labels.cpu().numpy())
+            prediction_scores.extend(
+                F.softmax(predictions, dim=-1).detach().cpu().numpy()[:, 1]
+            )
 
-        epoch_loss += loss.item()
+            epoch_loss += loss.item()
 
-        epoch_metric = roc_auc_score(order_labels, prediction_scores)
+            epoch_metric = roc_auc_score(order_labels, prediction_scores)
 
-        if test:
-            counter += 1
-            if counter >= 20:
-                break
+            if test:
+                counter += 1
+                if counter >= 20:
+                    break
     return (
         epoch_loss / len(dataloader),
         epoch_metric,
         [ids, order_labels, events, important_scores, prediction_scores],
     )
 
-def epoch_train(model, dataloader, optimizer, criterion, test):
+def epoch_train(model, dataloader, optimizer, criterion, test=0):
     """
     Model training, called by ModelProcess function
     
@@ -199,17 +202,17 @@ def epoch_train(model, dataloader, optimizer, criterion, test):
 
     model.train()
 
-    # initialize lists to compare predictions & ground truth labels for metric calculation
-    order_labels = []
-    prediction_scores = []
 
-    if test:
+
+    if test: # test function on a small number of batches
         counter = 0
     for idx, [ids, seq, labels, mask] in enumerate(dataloader):
+
         optimizer.zero_grad()
 
         labels = labels.squeeze().long()
-        if (
+
+        aif (
             isinstance(model, nn.DataParallel) and model.module.device_type == "gpu"
         ) or (not isinstance(model, nn.DataParallel) and model.device_type == "gpu"):
             seq, labels, mask = seq.cuda(), labels.cuda(), mask.cuda()
@@ -220,16 +223,19 @@ def epoch_train(model, dataloader, optimizer, criterion, test):
         loss.backward()
         optimizer.step()
 
-        order_labels.extend(labels.cpu().numpy())
-        prediction_scores.extend(
-            F.softmax(predictions, dim=-1).detach().cpu().numpy()[:, 1]
-        )
+        copied_labels = copy.deepcopy(labels.cpu().numpy())
+        del labels
+        order_labels.extend(copied_labels)
+        
+        copied_preds = copy.deepcopy(F.softmax(predictions, dim=-1).detach().cpu().numpy()[:, 1])
+        del predictions
+        prediction_scores.extend(copied_preds)
 
         epoch_loss += loss.item()
 
         if test:
             counter += 1
-            if counter >= 20:
+            if counter >= test:
                 break
     # calculate results
     epoch_metric = roc_auc_score(order_labels, prediction_scores)
