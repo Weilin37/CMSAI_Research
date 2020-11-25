@@ -108,7 +108,7 @@ def get_all_data_from_folds(data_root_dir, folds):
         
     df_all = None
     for fold in folds:
-        data_path = os.path.join(data_root_dir, fold, 'test', 'raw_test_data_flatten_30days.csv')
+        data_path = os.path.join(data_root_dir, fold, 'test', 'raw_test_data_1000_30days_anony.csv')
         df = pd.read_csv(data_path)
         if df_all is None:
             df_all = df.copy(deep=True)
@@ -123,8 +123,8 @@ if __name__ == "__main__":
     ROOT_DIR = '/home/ec2-user/SageMaker/CMSAI/modeling/tes/data/final-global/re/1000/'
     RAW_DATA_DIR = os.path.join(ROOT_DIR, 'raw')
     
-    SPLITS_FNAMES = OrderedDict({'train': ['train', 'raw_train_data_flatten_30days.csv'],
-                                 'val': ['test', 'raw_test_data_flatten_30days.csv']
+    SPLITS_FNAMES = OrderedDict({'train': ['train', 'raw_train_data_1000_30days_anony.csv'],
+                                 'val': ['test', 'raw_test_data_1000_30days_anony.csv']
                                 })
     VOCAB_FNAME = 'vocab_d30_s30_vpos'
     LABEL = 'unplanned_readmissions'

@@ -131,48 +131,48 @@ if __name__ == "__main__":
     ANONYMIZED_COLUMN = 'patient_id'
     RANDOM_STRING_LENGTH = 9
 
-    ## AE
-    ROOT_DIR = '/home/ec2-user/SageMaker/CMSAI/modeling/tes/data/anonymize/AE/Data/'
-    RAW_DIR = os.path.join(ROOT_DIR, 'Raw')
-    OUTPUT_DIR = os.path.join(ROOT_DIR, 'Anonymized')
-    RE_COLUMN2 = None
+#     ## AE
+#     ROOT_DIR = '/home/ec2-user/SageMaker/CMSAI/modeling/tes/data/anonymize/AE/Data/'
+#     RAW_DIR = os.path.join(ROOT_DIR, 'Raw')
+#     OUTPUT_DIR = os.path.join(ROOT_DIR, 'Anonymized')
+#     RE_COLUMN2 = None
 
-    DATA_TYPES = ['365NoDeath', '365TestPhase']
-    MAPPINGS_PATH = os.path.join(OUTPUT_DIR, '{}_mappings.json'.format(ANONYMIZED_COLUMN))
+#     DATA_TYPES = ['365NoDeath', '365TestPhase']
+#     MAPPINGS_PATH = os.path.join(OUTPUT_DIR, '{}_mappings.json'.format(ANONYMIZED_COLUMN))
 
-    print('ANONYMIZING AE DATA...')
-#     #Creating the patient_id mappings dictionary
+#     print('ANONYMIZING AE DATA...')
+# #     #Creating the patient_id mappings dictionary
+# #     filepaths = get_fpaths(RAW_DIR, DATA_TYPES)
+# #     unique_values = get_unique_values(filepaths, ANONYMIZED_COLUMN)
+# #     mappings_path = get_all_mappings(unique_values, ANONYMIZED_COLUMN, OUTPUT_DIR, RANDOM_STRING_LENGTH)
+
+#     #Apply the mappings
 #     filepaths = get_fpaths(RAW_DIR, DATA_TYPES)
-#     unique_values = get_unique_values(filepaths, ANONYMIZED_COLUMN)
-#     mappings_path = get_all_mappings(unique_values, ANONYMIZED_COLUMN, OUTPUT_DIR, RANDOM_STRING_LENGTH)
-
-    #Apply the mappings
-    filepaths = get_fpaths(RAW_DIR, DATA_TYPES)
-    mappings = read_mappings(MAPPINGS_PATH)
-    apply_mappings(filepaths, mappings, ANONYMIZED_COLUMN, RE_COLUMN2)
+#     mappings = read_mappings(MAPPINGS_PATH)
+#     apply_mappings(filepaths, mappings, ANONYMIZED_COLUMN, RE_COLUMN2)
 
 # ================================================================================
 
-    # RE
-    ROOT_DIR = '/home/ec2-user/SageMaker/CMSAI/modeling/tes/data/anonymize/RE/Data/'
-    RAW_DIR = os.path.join(ROOT_DIR, 'Raw')
-    OUTPUT_DIR = os.path.join(ROOT_DIR, 'Anonymized')
+#     # RE
+#     ROOT_DIR = '/home/ec2-user/SageMaker/CMSAI/modeling/tes/data/anonymize/RE/Data/'
+#     RAW_DIR = os.path.join(ROOT_DIR, 'Raw')
+#     OUTPUT_DIR = os.path.join(ROOT_DIR, 'Anonymized')
 
-    DATA_TYPES = ['365', '365TestPhase']
-    MAPPINGS_PATH = os.path.join(OUTPUT_DIR, '{}_mappings.json'.format(ANONYMIZED_COLUMN))
-    RE_COLUMN2 = 'discharge_id'
+#     DATA_TYPES = ['365', '365TestPhase']
+#     MAPPINGS_PATH = os.path.join(OUTPUT_DIR, '{}_mappings.json'.format(ANONYMIZED_COLUMN))
+#     RE_COLUMN2 = 'discharge_id'
 
-    print('ANONYMIZING RE DATA...')
-#     #Creating the patient_id mappings dictionary
+#     print('ANONYMIZING RE DATA...')
+# #     #Creating the patient_id mappings dictionary
+# #     filepaths = get_fpaths(RAW_DIR, DATA_TYPES)
+# #     unique_values = get_unique_values(filepaths, ANONYMIZED_COLUMN)
+# #     mappings_path = get_all_mappings(unique_values, ANONYMIZED_COLUMN, OUTPUT_DIR, RANDOM_STRING_LENGTH)
+
+#     #Apply the mappings
 #     filepaths = get_fpaths(RAW_DIR, DATA_TYPES)
-#     unique_values = get_unique_values(filepaths, ANONYMIZED_COLUMN)
-#     mappings_path = get_all_mappings(unique_values, ANONYMIZED_COLUMN, OUTPUT_DIR, RANDOM_STRING_LENGTH)
+#     mappings = read_mappings(MAPPINGS_PATH)
+#     apply_mappings(filepaths, mappings, ANONYMIZED_COLUMN, RE_COLUMN2)
 
-    #Apply the mappings
-    filepaths = get_fpaths(RAW_DIR, DATA_TYPES)
-    mappings = read_mappings(MAPPINGS_PATH)
-    apply_mappings(filepaths, mappings, ANONYMIZED_COLUMN, RE_COLUMN2)
-    
 # ================================================================================
 
     # RE With Dates
@@ -184,7 +184,7 @@ if __name__ == "__main__":
     MAPPINGS_PATH = os.path.join(OUTPUT_DIR, '{}_mappings.json'.format(ANONYMIZED_COLUMN))
     RE_COLUMN2 = 'discharge_id'
 
-    print('ANONYMIZING RE DATA...')
+    print('ANONYMIZING RE WITH DATE DATA...')
 #     #Creating the patient_id mappings dictionary
 #     filepaths = get_fpaths(RAW_DIR, DATA_TYPES)
 #     unique_values = get_unique_values(filepaths, ANONYMIZED_COLUMN)

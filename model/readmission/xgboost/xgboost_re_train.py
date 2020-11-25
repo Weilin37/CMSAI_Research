@@ -90,6 +90,7 @@ def train_hpo(hyperparameter_ranges, container, execution_role, instance_count, 
               output_path, sagemaker_session, eval_metric, objective, objective_metric_name, 
               max_train_jobs, max_parallel_jobs, scale_pos_weight, train_channel, val_channel=None):
     """Train a model based on a given data fold and HPO training job summary job."""
+    import pdb; pdb.set_trace()
     xgb_model = sagemaker.estimator.Estimator(container,
                                         execution_role, 
                                         instance_count=instance_count, 
@@ -109,7 +110,7 @@ def train_hpo(hyperparameter_ranges, container, execution_role, instance_count, 
 
     tuner = HyperparameterTuner(xgb_model, 
                                 objective_metric_name,
-                                hyperparameter ranges,
+                                hyperparameter_ranges,
                                 max_jobs=max_train_jobs,
                                 max_parallel_jobs=max_parallel_jobs)
         
@@ -124,7 +125,7 @@ def train_model(hpo_summary_row, container, execution_role, instance_count, inst
     """Train a model based on a given data fold and HPO training job summary job."""
     params = dict(hpo_summary_row.iloc[:12])
     
-    if job_name is None
+    if job_name is None:
         xgb_model = sagemaker.estimator.Estimator(container,
                                             execution_role, 
                                             instance_count=instance_count, 
@@ -168,12 +169,11 @@ if __name__ == "__main__":
     TUNING_FOLD = 0 #Fold number to be used to launch the HPO tuning job
     DATA_ALL = 'all'
     LABEL = 'unplanned_readmissions'
-    
     ROOT_DIR = '/home/ec2-user/SageMaker/CMSAI/modeling/tes/data/final-global/re/1000/'
     DATA_DIR = os.path.join(ROOT_DIR, 'preprocessed')
     TRAIN_DIR = os.path.join(DATA_DIR, 'training')
-    CLASS_IMBALANCE_PATH_PATTERN = os.path.join(DATA_DIR, {}, 'class_imbalances.json')
-    HPO_SUMMARY_PATH_PATTERN = os.path.join(TRAIN_DIR, str(NUM_FEATURES), {})
+    CLASS_IMBALANCE_PATH_PATTERN = os.path.join(DATA_DIR, '{}', 'class_imbalances.json')
+    HPO_SUMMARY_PATH_PATTERN = os.path.join(TRAIN_DIR, str(NUM_FEATURES), '{}')
     HPO_RESULTS_PATH = os.path.join(TRAIN_DIR, str(NUM_FEATURES), DATA_ALL, 'hpo_results.csv')
     TRAIN_RESULTS_PATH = os.path.join(TRAIN_DIR, str(NUM_FEATURES), DATA_ALL, 'hpo_results.csv')    
 
@@ -181,11 +181,8 @@ if __name__ == "__main__":
     BUCKET = 'cmsai-mrk-amzn'
     #Directory prefix where the model training outputs is saved
     now = strftime("%Y-%m-%d-%H-%M-%S", gmtime())
-    DATA_PREFIX = 'FinalData/RE/Models/XGBoost/data' #data_split, num_features
-    MODEL_PREFIX = 'FinalData/RE/Models/XGBoost/models' #data_split, num_features, time
-    
-    #'FinalData/RE/models/re/final-global/data/{}'.format(TUNING_FOLD)
-    #'CSVModelInputs/Tes/models/re/final-global/xgboost/{}/{}'.format(TUNING_FOLD, now)
+    DATA_PREFIX = 'FinalData/RE/Models/XGBoost/1000/training/data' #data_split, num_features
+    MODEL_PREFIX = 'FinalData/RE/Models/XGBoost/1000/training/models' #data_split, num_features, time
     
     ###Algorithm config
     ALGORITHM = 'xgboost'
@@ -194,8 +191,8 @@ if __name__ == "__main__":
     ###HPO/training job config
     TRAIN_INSTANCE_TYPE = 'ml.m4.16xlarge'
     TRAIN_INSTANCE_COUNT = 2
-    MAX_PARALLEL_JOBS = 4
-    MAX_TRAIN_JOBS = 4#20 #TODO: Update later
+    MAX_PARALLEL_JOBS = 2#4
+    MAX_TRAIN_JOBS = 2#4#20 #TODO: Update later
     
     EVALUATION_METRIC = 'auc'
     OBJECTIVE = 'binary:logistic'
@@ -232,16 +229,16 @@ if __name__ == "__main__":
 
     training_results = []
     s3_resource = boto3.Session().resource('s3')
-
     #Model Selection...
     print('Launching model selection using cross validation...')
     for i, fold in enumerate(FOLDS):
+        
         #Prepare the input train & validation data path
-        s3_train_path = 's3://{}/{}/{}/{}/train'.format(BUCKET, DATA_PREFIX, fold, num_features)
-        s3_val_path = 's3://{}/{}/{}/{}/val'.format(BUCKET, DATA_PREFIX, fold, num_features)
+        s3_train_path = 's3://{}/{}/{}/{}/train'.format(BUCKET, DATA_PREFIX, NUM_FEATURES, fold)
+        s3_val_path = 's3://{}/{}/{}/{}/val'.format(BUCKET, DATA_PREFIX, NUM_FEATURES, fold)
         s3_input_train = sagemaker.inputs.TrainingInput(s3_data=s3_train_path, content_type='csv')
         s3_input_validation = sagemaker.inputs.TrainingInput(s3_data=s3_val_path, content_type='csv')
-        s3_output_path = 's3://{}/{}/{}/{}/{}/output'.format(BUCKET, MODEL_PREFIX, fold, num_features, now)
+        s3_output_path = 's3://{}/{}/{}/{}/{}/output'.format(BUCKET, MODEL_PREFIX, now, NUM_FEATURES, fold)
 
         #Load class imbalances
         class_imbalance_path = CLASS_IMBALANCE_PATH_PATTERN.format(fold)
@@ -310,11 +307,11 @@ if __name__ == "__main__":
     params = get_best_model_params(HPO_RESULTS_PATH)
     
     #Prepare the input train & validation data path
-    s3_train_path = 's3://{}/{}/{}/{}/train'.format(BUCKET, DATA_PREFIX, DATA_ALL, num_features)
-    s3_val_path = 's3://{}/{}/{}/{}/val'.format(BUCKET, DATA_PREFIX, DATA_ALL, num_features)
+    s3_train_path = 's3://{}/{}/{}/{}/train'.format(BUCKET, DATA_PREFIX, NUM_FEATURES, DATA_ALL)
+    s3_val_path = 's3://{}/{}/{}/{}/val'.format(BUCKET, DATA_PREFIX, NUM_FEATURES, DATA_ALL)
     s3_input_train = sagemaker.inputs.TrainingInput(s3_data=s3_train_path, content_type='csv')
     s3_input_validation = sagemaker.inputs.TrainingInput(s3_data=s3_val_path, content_type='csv')
-    s3_output_path = 's3://{}/{}/{}/{}/{}/output'.format(BUCKET, MODEL_PREFIX, DATA_ALL, num_features, now)
+    s3_output_path = 's3://{}/{}/{}/{}/{}/output'.format(BUCKET, MODEL_PREFIX, now, NUM_FEATURES, DATA_ALL)
 
     #Load class imbalances
     class_imbalance_path = CLASS_IMBALANCE_PATH_PATTERN.format(DATA_ALL)
