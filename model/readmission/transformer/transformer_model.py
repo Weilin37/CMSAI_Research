@@ -159,7 +159,7 @@ class TransformerCNNModel(nn.Module):
 
         src = self.seq_embedding(src).transpose(0, 1) * math.sqrt(self.ninp)
         src = self.pos_encoder(src)
-
+       # print('src', src.shape)
         trans_output = (
             self.transformer_encoder(src, src_key_padding_mask=src_mask)
             .transpose(0, 1)
@@ -167,7 +167,8 @@ class TransformerCNNModel(nn.Module):
         )
 
         final_feature_map = self.Conv1d(trans_output).squeeze()
-
+       # print(final_feature_map.shape)
+    
         # if out_mask is not None:
         # extract normalized feature importances per prediction
         importance_out = self.softmax(final_feature_map + out_mask)
