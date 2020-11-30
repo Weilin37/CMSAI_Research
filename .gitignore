@@ -1,5 +1,18 @@
+# General
+
+.DS_Store
+.AppleDouble
+.LSOverride
+*-checkpoint*
+*.pyc
+
+# DATA Files
+
 *.csv
+*.zip
+*.gz
 *.pkl
-*.pickle
-*.json
+*.pt
+
+# Personal development files
 
