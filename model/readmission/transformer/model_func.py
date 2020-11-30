@@ -202,7 +202,11 @@ def epoch_train(model, dataloader, optimizer, criterion, test=0):
 
     model.train()
 
-
+    # initialize lists to compare predictions & ground truth labels
+    # and extract importance scores for prediction
+    order_labels = []
+    prediction_scores = []
+    
 
     if test: # test function on a small number of batches
         counter = 0
@@ -212,7 +216,7 @@ def epoch_train(model, dataloader, optimizer, criterion, test=0):
 
         labels = labels.squeeze().long()
 
-        aif (
+        if (
             isinstance(model, nn.DataParallel) and model.module.device_type == "gpu"
         ) or (not isinstance(model, nn.DataParallel) and model.device_type == "gpu"):
             seq, labels, mask = seq.cuda(), labels.cuda(), mask.cuda()
