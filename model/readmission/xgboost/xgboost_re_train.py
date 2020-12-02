@@ -59,7 +59,6 @@ def get_tuner_status_and_result_until_completion(tuner, num_features, target, sl
     Returns:
         None
     """
-    print('Training for #features={} and class={}...'.format(num_features, target))
     while True:
         tuning_job_result = smclient.describe_hyper_parameter_tuning_job(HyperParameterTuningJobName=tuner.latest_tuning_job.job_name)
         job_count = tuning_job_result['TrainingJobStatusCounters']['Completed']
@@ -79,8 +78,6 @@ def get_tuner_status_and_result_until_completion(tuner, num_features, target, sl
             
         if status == 'Completed':
             model_path = get_best_model_path(tuning_job_result)
-            print('Training for #features={} class={} completed!'.format(num_features, target))
-            print('==================================')
             return auc_value, model_path
         
         time.sleep(sleep_time)
@@ -88,9 +85,8 @@ def get_tuner_status_and_result_until_completion(tuner, num_features, target, sl
 
 def train_hpo(hyperparameter_ranges, container, execution_role, instance_count, instance_type, 
               output_path, sagemaker_session, eval_metric, objective, objective_metric_name, 
-              max_train_jobs, max_parallel_jobs, scale_pos_weight, train_channel, val_channel=None):
+              max_train_jobs, max_parallel_jobs, scale_pos_weight, data_channels):
     """Train a model based on a given data fold and HPO training job summary job."""
-    import pdb; pdb.set_trace()
     xgb_model = sagemaker.estimator.Estimator(container,
                                         execution_role, 
                                         instance_count=instance_count, 
@@ -114,9 +110,7 @@ def train_hpo(hyperparameter_ranges, container, execution_role, instance_count, 
                                 max_jobs=max_train_jobs,
                                 max_parallel_jobs=max_parallel_jobs)
         
-    data_channels = {'train': train_channel, 'validation': val_channel}
     tuner.fit(inputs=data_channels)
-    
     return tuner
 
 
@@ -165,17 +159,16 @@ def get_best_model_params(hpo_results_path):
 if __name__ == "__main__":
     #Number of features used for training
     NUM_FEATURES = 100
-    FOLDS = ['fold_'+ str(i) for i in range(4)]
-    TUNING_FOLD = 0 #Fold number to be used to launch the HPO tuning job
+    FOLDS = ['fold_'+ str(i) for i in range(5)]
     DATA_ALL = 'all'
-    LABEL = 'unplanned_readmissions'
+    FOLDS.append(DATA_ALL)
+    LABEL = 'unplanned_readmission'
     ROOT_DIR = '/home/ec2-user/SageMaker/CMSAI/modeling/tes/data/final-global/re/1000/'
     DATA_DIR = os.path.join(ROOT_DIR, 'preprocessed')
-    TRAIN_DIR = os.path.join(DATA_DIR, 'training')
+    TRAIN_DIR = os.path.join(ROOT_DIR, 'training')
     CLASS_IMBALANCE_PATH_PATTERN = os.path.join(DATA_DIR, '{}', 'class_imbalances.json')
-    HPO_SUMMARY_PATH_PATTERN = os.path.join(TRAIN_DIR, str(NUM_FEATURES), '{}')
-    HPO_RESULTS_PATH = os.path.join(TRAIN_DIR, str(NUM_FEATURES), DATA_ALL, 'hpo_results.csv')
-    TRAIN_RESULTS_PATH = os.path.join(TRAIN_DIR, str(NUM_FEATURES), DATA_ALL, 'hpo_results.csv')    
+    HPO_SUMMARY_PATH_PATTERN = os.path.join(TRAIN_DIR, str(NUM_FEATURES), '{}', 'hpo_results.csv')
+    TRAIN_RESULTS_PATH_PATTERN = os.path.join(TRAIN_DIR, str(NUM_FEATURES), '{}', 'train_results.csv')    
 
     #Bucket where the trained model is stored
     BUCKET = 'cmsai-mrk-amzn'
@@ -191,8 +184,8 @@ if __name__ == "__main__":
     ###HPO/training job config
     TRAIN_INSTANCE_TYPE = 'ml.m4.16xlarge'
     TRAIN_INSTANCE_COUNT = 2
-    MAX_PARALLEL_JOBS = 2#4
-    MAX_TRAIN_JOBS = 2#4#20 #TODO: Update later
+    MAX_PARALLEL_JOBS = 4
+    MAX_TRAIN_JOBS = 20
     
     EVALUATION_METRIC = 'auc'
     OBJECTIVE = 'binary:logistic'
@@ -227,106 +220,61 @@ if __name__ == "__main__":
 
     container = retrieve(ALGORITHM, region, version=REPO_VERSION)
 
-    training_results = []
-    s3_resource = boto3.Session().resource('s3')
-    #Model Selection...
-    print('Launching model selection using cross validation...')
-    for i, fold in enumerate(FOLDS):
+    for fold in FOLDS:
+        print('Launching HPO tuning job for {}...'.format(fold))
         
         #Prepare the input train & validation data path
-        s3_train_path = 's3://{}/{}/{}/{}/train'.format(BUCKET, DATA_PREFIX, NUM_FEATURES, fold)
-        s3_val_path = 's3://{}/{}/{}/{}/val'.format(BUCKET, DATA_PREFIX, NUM_FEATURES, fold)
+        s3_train_path = 's3://{}/{}/{}/{}/train'.format(BUCKET, DATA_PREFIX, fold, NUM_FEATURES)
+        s3_val_path = 's3://{}/{}/{}/{}/val'.format(BUCKET, DATA_PREFIX, fold, NUM_FEATURES)
         s3_input_train = sagemaker.inputs.TrainingInput(s3_data=s3_train_path, content_type='csv')
         s3_input_validation = sagemaker.inputs.TrainingInput(s3_data=s3_val_path, content_type='csv')
         s3_output_path = 's3://{}/{}/{}/{}/{}/output'.format(BUCKET, MODEL_PREFIX, now, NUM_FEATURES, fold)
-
         #Load class imbalances
         class_imbalance_path = CLASS_IMBALANCE_PATH_PATTERN.format(fold)
         class_imbalances = load_class_imbalances(class_imbalance_path)
         imb = class_imbalances[LABEL]
         scale_pos_weight = float(imb[0])/imb[1] # negative/positive
 
-        if i == TUNING_FOLD:
-            print('Launching HPO tuning job with {} data...'.format(fold))
-            tuner = train_hpo(hyperparameter_ranges=HYPERPARAMETER_RANGES, 
-                              container=container, 
-                              execution_role=role, 
-                              instance_count=TRAIN_INSTANCE_COUNT, 
-                              instance_type=TRAIN_INSTANCE_TYPE, 
-                              output_path=s3_output_path, 
-                              sagemaker_session=sess, 
-                              eval_metric=EVALUATION_METRIC, 
-                              objective=OBJECTIVE, 
-                              objective_metric_name=OBJECTIVE_METRIC_NAME, 
-                              max_train_jobs=MAX_TRAIN_JOBS, 
-                              max_parallel_jobs=MAX_PARALLEL_JOBS, 
-                              scale_pos_weight=scale_pos_weight, 
-                              train_channel=s3_input_train, 
-                              val_channel=s3_input_validation)
-                
-            #Save the HPO tuning job summary data
-            job_name = tuner.latest_tuning_job.name
-            my_tuner = sagemaker.HyperparameterTuningJobAnalytics(job_name)
-            df = my_tuner.dataframe()
-            hpo_summary_path = HPO_SUMMARY_PATH_PATTERN.format(fold)
-            
-            hpo_summary_dir = os.path.dirname(hpo_summary_path)
-            if not os.path.exists(hpo_summary_dir):
-                os.makedirs(hpo_summary_dir)    
-            df.to_csv(hpo_summary_path, index=False)
-            
-            training_results.append(df['FinalObjectiveValue'].values.tolist())
-            
+        if fold == DATA_ALL:
+            data_channels = {'train': s3_input_train, 'validation': s3_input_train}
         else:
-            print('Launching training job with {} data...'.format(fold))
-            hpo_summary_path = HPO_SUMMARY_PATH_PATTERN.format(FOLDS[TUNNING_FOLD])
-            df_summary = pd.read_csv(hpo_summary_path)
-            my_args = (container, role, TRAIN_INSTANCE_COUNT, TRAIN_INSTANCE_TYPE, s3_output_path, 
-                       sess, EVALUATION_METRIC, OBJECTIVE, scale_pos_weight, s3_input_train, s3_input_validation)
-            result = df_summary.apply(train_model, axis=1, args=my_args)
-            training_results.append(result)
+            data_channels = {'train': s3_input_train, 'validation': s3_input_validation}
+
+        tuner = train_hpo(hyperparameter_ranges=HYPERPARAMETER_RANGES, 
+                          container=container, 
+                          execution_role=role, 
+                          instance_count=TRAIN_INSTANCE_COUNT, 
+                          instance_type=TRAIN_INSTANCE_TYPE, 
+                          output_path=s3_output_path, 
+                          sagemaker_session=sess, 
+                          eval_metric=EVALUATION_METRIC, 
+                          objective=OBJECTIVE, 
+                          objective_metric_name=OBJECTIVE_METRIC_NAME, 
+                          max_train_jobs=MAX_TRAIN_JOBS, 
+                          max_parallel_jobs=MAX_PARALLEL_JOBS, 
+                          scale_pos_weight=scale_pos_weight, 
+                          data_channels=data_channels)
+
             
-    hpo_summary_path = HPO_SUMMARY_PATH_PATTERN.format(FOLDS[TUNNING_FOLD])
-    df_tuning_summary = pd.read_csv(hpo_summary_path)
-    df_params = df_tuning_summary.iloc[:, :12] #Hyperparameters
+        #Get the hyperparameter tuner status at regular interval
+        val_auc, best_model_path = get_tuner_status_and_result_until_completion(tuner, NUM_FEATURES, LABEL)
+        train_results = [[LABEL, NUM_FEATURES, val_auc, best_model_path]]
+            
+        train_results_path = TRAIN_RESULTS_PATH_PATTERN.format(fold)
+        train_results_dir = os.path.dirname(train_results_path)
+        if not os.path.exists(train_results_dir):
+            os.makedirs(train_results_dir)
+        df_results = pd.DataFrame(train_results, columns=['class', 'num_features', 'val_auc', 'best_model_path'])
+        df_results.to_csv(train_results_path, index=False)
 
-    df_results = pd.DataFrame(training_results, columns=FOLDS)
-    df_results['Avg'] = df_results.mean(axis=0)
-    
-    df_final_results = pd.concat([df_params, df_results], axis=1)
-    hpo_results_dir = os.path.dirname(HPO_RESULTS_PATH)
-    if not os.path.exists(hpo_results_dir):
-        os.makdirs(hpo_results_dir)
-    df_final_results.to_csv(HPO_RESULTS_PATH)    
-    print('Model Selection Successfully Done!')
-    
-    
-    #Best Model Training...
-    print('Launching the best model training using all data...')
-    #Get parameters for the best training job
-    params = get_best_model_params(HPO_RESULTS_PATH)
-    
-    #Prepare the input train & validation data path
-    s3_train_path = 's3://{}/{}/{}/{}/train'.format(BUCKET, DATA_PREFIX, NUM_FEATURES, DATA_ALL)
-    s3_val_path = 's3://{}/{}/{}/{}/val'.format(BUCKET, DATA_PREFIX, NUM_FEATURES, DATA_ALL)
-    s3_input_train = sagemaker.inputs.TrainingInput(s3_data=s3_train_path, content_type='csv')
-    s3_input_validation = sagemaker.inputs.TrainingInput(s3_data=s3_val_path, content_type='csv')
-    s3_output_path = 's3://{}/{}/{}/{}/{}/output'.format(BUCKET, MODEL_PREFIX, now, NUM_FEATURES, DATA_ALL)
-
-    #Load class imbalances
-    class_imbalance_path = CLASS_IMBALANCE_PATH_PATTERN.format(DATA_ALL)
-    class_imbalances = load_class_imbalances(class_imbalance_path)
-    imb = class_imbalances[LABEL]
-    scale_pos_weight = float(imb[0])/imb[1] # negative/positive
-
-    my_args = (container, role, TRAIN_INSTANCE_COUNT, TRAIN_INSTANCE_TYPE, s3_output_path, 
-               sess, EVALUATION_METRIC, OBJECTIVE, scale_pos_weight, s3_input_train, s3_input_validation)
-    model_path = os.path.join(output_path, 'model.tar.gz')
-    val_auc = train_model(*my_args)
-    
-    columns = ['class', 'num_features', 'val_auc', 'best_model_path']
-    eval_results = [label, NUM_FEATURES, val_auc, model_path]
-    df_eval_results = pd.DataFrame(eval_results, columns=columns)
-
-    df_eval_results.to_csv(TRAIN_RESULTS_PATH, index=False)
-    print('Best Training Model Successfully Trained!')
+        #Save the HPO tuning job summary data
+        job_name = tuner.latest_tuning_job.name
+        my_tuner = sagemaker.HyperparameterTuningJobAnalytics(job_name)
+        df = my_tuner.dataframe()
+        hpo_summary_path = HPO_SUMMARY_PATH_PATTERN.format(fold)
+            
+        hpo_summary_dir = os.path.dirname(hpo_summary_path)
+        if not os.path.exists(hpo_summary_dir):
+            os.makedirs(hpo_summary_dir)    
+        df.to_csv(hpo_summary_path, index=False)
+    print('HPO Trainings Successfully Completed!')
