@@ -114,46 +114,89 @@ def train_hpo(hyperparameter_ranges, container, execution_role, instance_count, 
     return tuner
 
 
-def train_model(hpo_summary_row, container, execution_role, instance_count, instance_type, output_path, 
-                sagemaker_session, eval_metric, objective, scale_pos_weight, train_channel, val_channel=None, job_name=None):
-    """Train a model based on a given data fold and HPO training job summary job."""
-    params = dict(hpo_summary_row.iloc[:12])
+def get_best_hpo_jobs(hpo_path_pattern, folds, data_all):
+    """Get best training job for each fold."""
+    output_path = hpo_path_pattern.format(data_all)
+    if os.path.exists(output_path):
+        print('Best training jobs file for each fold already created! Loading existing data...')
+        df = pd.read_csv(output_path)
+        return df, output_path
     
-    if job_name is None:
-        xgb_model = sagemaker.estimator.Estimator(container,
-                                            execution_role, 
-                                            instance_count=instance_count, 
-                                            instance_type=instance_type,
-                                            output_path=output_path,
-                                            sagemaker_session=sagemaker_session)
+    df = None
+    columns = None
+    best_params = []
+    hpo_fname = ''
+    for fold in folds:
+        hpo_path = hpo_path_pattern.format(fold)
+        df_hpo = pd.read_csv(hpo_path)
+        if columns is None:
+            columns = df_hpo.columns.tolist()
+            columns.append('fold')
+            hpo_fname = os.path.basename(hpo_path)
+        val_aucs = df_hpo['FinalObjectiveValue'].tolist()
+        max_auc = max(val_aucs)
+        max_idx = val_aucs.index(max_auc)
+        hpo_best_params = df_hpo.iloc[max_idx, :].tolist()
+        hpo_best_params.append(fold)
+        best_params.append(hpo_best_params)
+
+    df = pd.DataFrame(best_params, columns=columns)
+    
+    output_dir = os.path.dirname(output_path)
+    os.makedirs(output_dir, exist_ok=True)
+   
+    df.to_csv(output_path, index=False)
+    return df, output_path
+
+
+def get_best_params(df_hpo, criteria='avg'):
+    """Get the parameters of the best hpo based on the given criteria.
+    criteria possible values: ['min', 'max', 'avg']
+    """
+    auc_col = 'FinalObjectiveValue'
+    val_aucs = df_hpo[auc_col].tolist()
+    auc = None
+    if criteria=='min':
+        auc = min(val_aucs)
+        idx = val_aucs.index(auc)
+    elif criteria=='max':
+        auc = max(val_aucs)
+        idx = val_aucs.index(auc)
+    elif criteria=='avg':
+        df_hpo.sort_values(auc_col, inplace=True)
+        idx = 2        
+        auc = df_hpo[auc_col][idx]
     else:
-        xgb_model = sagemaker.estimator.Estimator(container,
-                                            execution_role, 
-                                            instance_count=instance_count, 
-                                            instance_type=instance_type,
-                                            output_path=output_path,
-                                            sagemaker_session=sagemaker_session,
-                                            base_job_name=job_name)
+        raise ValueError('Error! Invalid criteria: {}'.format(criteria))
+    
+    params = dict(df_hpo.iloc[idx, :12])
+    int_params = ['max_delta_step', 'max_depth', 'num_round']
+    for param in int_params:
+        params[param] = int(params[param])
+    return params, auc
+
+
+def train_model(params, container, execution_role, instance_count, instance_type, output_path, 
+                sagemaker_session, eval_metric, objective, scale_pos_weight, data_channels):
+    """Train a model based on a given data and xgboost params."""
+    xgb_model = sagemaker.estimator.Estimator(container,
+                                        execution_role, 
+                                        instance_count=instance_count, 
+                                        instance_type=instance_type,
+                                        output_path=output_path,
+                                        sagemaker_session=sagemaker_session)
     
     xgb_model.set_hyperparameters(eval_metric=eval_metric,
                             objective=objective,
                             scale_pos_weight=scale_pos_weight, #For class imbalance
                             **params)
     
-    data_channels = {'train': train_channel, 'validation': val_channel}
     xgb_model.fit(inputs=data_channels)
     
-    return xgb_model
+    job_name = xgb_model._current_job_name
+    s3_model_path = os.path.join(output_path, job_name, 'output/model.tar.gz')
+    return s3_model_path
 
-
-def get_best_model_params(hpo_results_path):
-    """Get the parameters for the best training job."""
-    df_train_results = pd.read_csv(hpo_results_path)
-    avg_performances = df_train_results.Avg.values.tolist()
-    max_indx = avg_performances.index(max(avg_performances))
-    params = df_train_results.iloc[max_indx, :12]
-    params = dict(params)
-    return params
 
 
 if __name__ == "__main__":
@@ -161,7 +204,8 @@ if __name__ == "__main__":
     NUM_FEATURES = 100
     FOLDS = ['fold_'+ str(i) for i in range(5)]
     DATA_ALL = 'all'
-    FOLDS.append(DATA_ALL)
+    BEST_JOB_CRITERIA = 'avg' #Criteria to select the best training job for final training
+    #FOLDS.append(DATA_ALL)
     LABEL = 'unplanned_readmission'
     ROOT_DIR = '/home/ec2-user/SageMaker/CMSAI/modeling/tes/data/final-global/re/1000/'
     DATA_DIR = os.path.join(ROOT_DIR, 'preprocessed')
@@ -278,3 +322,38 @@ if __name__ == "__main__":
             os.makedirs(hpo_summary_dir)    
         df.to_csv(hpo_summary_path, index=False)
     print('HPO Trainings Successfully Completed!')
+
+    #TRAINING FOR ALL DATA...
+    print('Training the final model using all data...')    
+    #Prepare the input train & validation data path
+    s3_train_path = 's3://{}/{}/{}/{}/train'.format(BUCKET, DATA_PREFIX, DATA_ALL, NUM_FEATURES)
+    s3_input_train = sagemaker.inputs.TrainingInput(s3_data=s3_train_path, content_type='csv')
+    s3_output_path = 's3://{}/{}/{}/{}/{}/output'.format(BUCKET, MODEL_PREFIX, now, NUM_FEATURES, DATA_ALL)
+    #Load class imbalances
+    class_imbalance_path = CLASS_IMBALANCE_PATH_PATTERN.format(DATA_ALL)
+    class_imbalances = load_class_imbalances(class_imbalance_path)
+    imb = class_imbalances[LABEL]
+    scale_pos_weight = float(imb[0])/imb[1] # negative/positive
+
+    data_channels = {'train': s3_input_train, 'validation': s3_input_train}
+    df_hpo, hpo_all_path = get_best_hpo_jobs(HPO_SUMMARY_PATH_PATTERN, FOLDS, DATA_ALL)
+    params, val_auc = get_best_params(df_hpo, criteria=BEST_JOB_CRITERIA)
+    
+    s3_model_path = train_model(params=params, 
+                                container=container, 
+                                execution_role=role, 
+                                instance_count=TRAIN_INSTANCE_COUNT, 
+                                instance_type=TRAIN_INSTANCE_TYPE, 
+                                output_path=s3_output_path, 
+                                sagemaker_session=sess, 
+                                eval_metric=EVALUATION_METRIC, 
+                                objective=OBJECTIVE, 
+                                scale_pos_weight=scale_pos_weight, 
+                                data_channels=data_channels)
+    
+    train_results_path = TRAIN_RESULTS_PATH_PATTERN.format(DATA_ALL)
+    columns = ['class', 'num_features', 'val_auc', 'best_model_path']
+    results = [[LABEL, NUM_FEATURES, val_auc, s3_model_path]]
+    df = pd.DataFrame(results, columns=columns)
+    df.to_csv(train_results_path, index=False)
+    print('Training Successfully Completed!')
