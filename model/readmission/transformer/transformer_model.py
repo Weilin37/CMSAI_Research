@@ -84,6 +84,9 @@ class TransformerCNNModel(nn.Module):
         super(TransformerCNNModel, self).__init__()
         self.model_type = "Transformer"
         self.device_type = device
+        self.emsize = ninp
+        self.nhead = nhead
+        self.nlayers = nlayers
         
         print(
             "parameters: embsize:{}, nhead:{}, nhid:{}, nlayers:{}, dropout:{}".format(
@@ -152,22 +155,23 @@ class TransformerCNNModel(nn.Module):
             src_mask = src_mask.view(src_mask.size()[0], -1)
             out_mask = (
                 mask.float()
-                .masked_fill(mask == 0.0, float(-100.0))
+                .masked_fill(mask == 0.0, float(-1000.0))
+                .masked_fill(mask == 2.0, float(-1000.0))
                 .masked_fill(mask == 1.0, float(0.0))
                 .view(mask.size()[0], -1)
             )
 
         src = self.seq_embedding(src).transpose(0, 1) * math.sqrt(self.ninp)
         src = self.pos_encoder(src)
-       # print('src', src.shape)
+        #print('src', src.shape)
         trans_output = (
             self.transformer_encoder(src, src_key_padding_mask=src_mask)
             .transpose(0, 1)
             .transpose(1, 2)
         )
-
+        #print('#out', trans_output.shape)
         final_feature_map = self.Conv1d(trans_output).squeeze()
-       # print(final_feature_map.shape)
+        #print(final_feature_map.shape)
     
         # if out_mask is not None:
         # extract normalized feature importances per prediction
@@ -181,3 +185,4 @@ class TransformerCNNModel(nn.Module):
             output = output.view(1, 2)
 
         return output, importance_out
+    
