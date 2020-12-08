@@ -1,3 +1,4 @@
+import os
 import copy
 import numpy as np
 import torch
@@ -46,7 +47,7 @@ def training_process(model, epoch, dataloaders: dict, save_model=None, test=Fals
     print(f"device: {model.module.device_type}")
 
     # initialize lists for documenting training performance
-    pre_val_metric = 0.0
+    pre_val_metric = -float('inf')
     train_loss = []
     train_metric = []
 
@@ -87,21 +88,26 @@ def training_process(model, epoch, dataloaders: dict, save_model=None, test=Fals
                 np.mean(epoch_val_metric),
             )
 
-            if epoch_val_metric > pre_val_metric and save_model is not None:
+            if epoch_val_metric > pre_val_metric:
                 print("\t***Updating best model***")
                 pre_val_metric = epoch_val_metric.copy()
-                model_name = "emsize-{}_head-{}_layers-{}_epoch-{}_valauc-{}.pth".format(
-                    emsize,
-                    nhead,
-                    nlayers,
-                    str(epoch),
-                    np.round(epoch_val_metric, decimals=3),
-                )
+                best_val_results = val_results
+                
+                if save_model is not None:
+                    model_name = "emsize-{}_head-{}_layers-{}_epoch-{}_valauc-{}.pth".format(
+                        model.module.emsize,
+                        model.module.nhead,
+                        model.module.nlayers,
+                        str(epoch),
+                        np.round(epoch_val_metric, decimals=3),
+                    )
 
-                model_fp = os.path.join(save_model, model_name)
-                if not os.path.isdir(save_model):
-                    os.makedirs(save_model)
-                torch.save(model.module.state_dict(), model_fp)
+                    model_fp = os.path.join(save_model, model_name)
+                    if not os.path.isdir(save_model):
+                        os.makedirs(save_model)
+                    torch.save(model.module.state_dict(), model_fp)
+                
+                
                 
 
         if "test" in dataloaders:
@@ -117,21 +123,23 @@ def training_process(model, epoch, dataloaders: dict, save_model=None, test=Fals
                 "epoch test AUC:",
                 np.mean(epoch_test_metric),
             )
+            
+            # update best scores
+            if "val" in dataloaders and epoch_val_metric > pre_val_metric:
+                best_test_results = test_results
+                
         scheduler.step()
 
     results = {'train_metric': train_metric}
     if len(val_metric) > 0:
         results['val_metric'] = val_metric
-        results['val_results'] = val_results
+        results['val_results'] = best_val_results
 
     if len(test_metric) > 0:
         results['test_metric'] = test_metric
-        results['test_results'] = test_results
+        results['test_results'] = best_test_results
 
     return results
-
-
-
 
 
 
@@ -148,6 +156,7 @@ def epoch_val(model, dataloader, optimizer, criterion, test):
 
     # initialize lists to compare predictions & ground truth labels
     # and extract importance scores for prediction
+    all_ids = []
     order_labels = []
     prediction_scores = []
     events = []
@@ -157,7 +166,7 @@ def epoch_val(model, dataloader, optimizer, criterion, test):
         counter = 0
         
     with torch.no_grad():
-        for idx, [ids, seq, labels, mask] in enumerate(dataloader):
+        for ids, seq, labels, mask in dataloader:
             # data formatting/loading
             labels = labels.squeeze().long()
             events.extend(seq.view(seq.size()[0], -1).squeeze().numpy())
@@ -173,6 +182,7 @@ def epoch_val(model, dataloader, optimizer, criterion, test):
 
             important_scores.extend(importance.detach().cpu().numpy())
             order_labels.extend(labels.cpu().numpy())
+            all_ids.extend(ids)
             prediction_scores.extend(
                 F.softmax(predictions, dim=-1).detach().cpu().numpy()[:, 1]
             )
@@ -188,7 +198,7 @@ def epoch_val(model, dataloader, optimizer, criterion, test):
     return (
         epoch_loss / len(dataloader),
         epoch_metric,
-        [ids, order_labels, events, important_scores, prediction_scores],
+        [all_ids, order_labels, events, important_scores, prediction_scores],
     )
 
 def epoch_train(model, dataloader, optimizer, criterion, test=0):
@@ -210,7 +220,7 @@ def epoch_train(model, dataloader, optimizer, criterion, test=0):
 
     if test: # test function on a small number of batches
         counter = 0
-    for idx, [ids, seq, labels, mask] in enumerate(dataloader):
+    for ids, seq, labels, mask in dataloader:
 
         optimizer.zero_grad()
 
