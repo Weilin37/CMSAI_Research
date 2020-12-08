@@ -1,6 +1,7 @@
 import numpy as np
 import pickle
 import torch
+from more_itertools import unique_everseen
 from torch.utils.data import Dataset, DataLoader
 
 def build_dataset(
@@ -36,6 +37,7 @@ def build_dataset(
 
     sequence = []
     pad_mask = []
+    ignore = {2, 0}
     print("Total size before building dataset: ", data.shape)
 
     # convert all events into indexes from vocab
@@ -43,6 +45,8 @@ def build_dataset(
         sentence = []
         mask = []
 
+        # remove accidental 'nan' from padding
+        found_valid_idx = False
         for j in range(len(data[i])):
             words = str(data[i][j]).replace("d_s", "d_").replace(' ', '').split(",")
             words = sorted(
@@ -51,7 +55,17 @@ def build_dataset(
                     for w in words
                 ]
             )
-
+            words = list(unique_everseen(words))
+            
+            ####### remove accidental 'nan' from padding
+            if not found_valid_idx:
+                if set(words).issubset(ignore): # invalid string
+                    words = []
+                else:
+                    found_valid_idx = True
+            ####### remove accidental 'nan' from padding
+            
+         
             if len(words) > max_length:
                 words = words[:max_length]
 
