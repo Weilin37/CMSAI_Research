@@ -212,7 +212,7 @@ def epoch_train(model, dataloader, optimizer, criterion, test=0):
 
         labels = labels.squeeze().long()
 
-        aif (
+        if (
             isinstance(model, nn.DataParallel) and model.module.device_type == "gpu"
         ) or (not isinstance(model, nn.DataParallel) and model.device_type == "gpu"):
             seq, labels, mask = seq.cuda(), labels.cuda(), mask.cuda()
