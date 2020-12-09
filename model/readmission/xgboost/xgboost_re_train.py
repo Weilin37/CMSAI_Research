@@ -201,7 +201,7 @@ def train_model(params, container, execution_role, instance_count, instance_type
 
 if __name__ == "__main__":
     #Number of features used for training
-    NUM_FEATURES = 100
+    NUM_FEATURES = 200
     FOLDS = ['fold_'+ str(i) for i in range(5)]
     DATA_ALL = 'all'
     BEST_JOB_CRITERIA = 'avg' #Criteria to select the best training job for final training
