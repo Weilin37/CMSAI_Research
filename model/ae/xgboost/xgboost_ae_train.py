@@ -30,7 +30,13 @@ import xgboost as xgb
 
 
 def load_labels(labels_path):
-    """Load class labels from file."""
+    """
+    Load class labels from file.
+    Args:
+        labels_path(str): List of classes file path
+    Returns:
+        List of classes
+    """
     with open(labels_path, 'r') as fp:
         data = fp.readlines()
     data = [dt.strip() for dt in data]
@@ -38,7 +44,13 @@ def load_labels(labels_path):
 
 
 def load_class_imbalances(class_imbalances_path):
-    """Load class imbalances from json file."""
+    """
+    Load class imbalances from json file.
+    Args:
+        class_imbalances_path(str): Class imbalances path
+    Returns:
+        Dictionary of class imbalances
+    """
     with open(class_imbalances_path, 'r') as fp:
         class_imbalances = json.load(fp)
     return class_imbalances
@@ -63,6 +75,7 @@ def get_tuner_status_and_result_until_completion(tuner, num_features, target, sl
     """Print results of running tuner on a regular interval until completion
     Args:
         tuner(Object): The running Hyperparameter tuner object
+        num_features(int): Total number of features
         target(str): Target string
     Returns:
         None
