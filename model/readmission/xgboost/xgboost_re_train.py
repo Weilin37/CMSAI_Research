@@ -1,5 +1,5 @@
 """
-A module that trains adverse events xgboost models.
+A module that trains readmissions xgboost models.
 """
 
 import json
@@ -30,7 +30,11 @@ import xgboost as xgb
 
 
 def load_class_imbalances(class_imbalances_path):
-    """Load class imbalances from json file."""
+    """
+    Load class imbalances from json file.
+    Args:
+        class_imbalances_path(str): Class imbalances path
+    """
     with open(class_imbalances_path, 'r') as fp:
         class_imbalances = json.load(fp)
     return class_imbalances
@@ -86,7 +90,26 @@ def get_tuner_status_and_result_until_completion(tuner, num_features, target, sl
 def train_hpo(hyperparameter_ranges, container, execution_role, instance_count, instance_type, 
               output_path, sagemaker_session, eval_metric, objective, objective_metric_name, 
               max_train_jobs, max_parallel_jobs, scale_pos_weight, data_channels):
-    """Train a model based on a given data fold and HPO training job summary job."""
+    """
+    Train a model based on a given data fold and HPO training job summary job.
+    Args:
+        hyperparameter_ranges(dict): Dictionary of all hyperparameter ranges
+        container(Object): Xgboost model docker container
+        execution_role(Object): Role to enable execution of HPO job
+        instance_count(int): # of instances for training job
+        instance_type(str): Instance type
+        output_path(str): Output path
+        sagemaker_session(Object): SageMaker session
+        eval_metric(str): Evaluation metric
+        objective(str): Objective function name
+        objective_metric_name(str): Objective function metric name
+        max_train_jobs(int): Max number of training jobs to run
+        max_parallel_jobs(int): Max number of jobs to run in parallel
+        scale_pos_weight: Class imbalance weight scale
+        data_channels(dict): Dictionary of data channels to be used for training
+    Returns:
+        Tuner object
+    """
     xgb_model = sagemaker.estimator.Estimator(container,
                                         execution_role, 
                                         instance_count=instance_count, 
@@ -115,7 +138,15 @@ def train_hpo(hyperparameter_ranges, container, execution_role, instance_count, 
 
 
 def get_best_hpo_jobs(hpo_path_pattern, folds, data_all):
-    """Get best training job for each fold."""
+    """
+    Get best training job for each fold.
+    Args:
+        hpo_path_pattern(str): HPO path pattern where the HPO results are located
+        folds(list): List of folds
+        data_all(str): Data all folder name
+    Returns:
+        Tuple of best hpos and output file path
+    """
     output_path = hpo_path_pattern.format(data_all)
     if os.path.exists(output_path):
         print('Best training jobs file for each fold already created! Loading existing data...')
@@ -150,8 +181,14 @@ def get_best_hpo_jobs(hpo_path_pattern, folds, data_all):
 
 
 def get_best_params(df_hpo, criteria='avg'):
-    """Get the parameters of the best hpo based on the given criteria.
+    """
+    Get the parameters of the best hpo based on the given criteria.
     criteria possible values: ['min', 'max', 'avg']
+    Args:
+        df_hpo(DataFrame): HPO results in dataframe format
+        criteria(str): Selection criter for the best params (avg/min/max)
+    Returns:
+        Tuple of best params and best AUC
     """
     auc_col = 'FinalObjectiveValue'
     val_aucs = df_hpo[auc_col].tolist()
@@ -178,7 +215,26 @@ def get_best_params(df_hpo, criteria='avg'):
 
 def train_model(params, container, execution_role, instance_count, instance_type, output_path, 
                 sagemaker_session, eval_metric, objective, scale_pos_weight, data_channels):
-    """Train a model based on a given data and xgboost params."""
+    """
+    Train a model based on a given data and xgboost params.
+    Args:
+        params(dict): Dictionary of params
+        container(Object): Xgboost model docker container
+        execution_role(Object): Rule that enables execution of a training job
+        instance_count(int): # of instances for training job
+        instance_type(str): Instance type
+        output_path(str): Output path
+        sagemaker_session(Object): SageMaker session
+        eval_metric(str): Evaluation metric
+        objective(str): Objective function name
+        objective_metric_name(str): Objective function metric name
+        max_train_jobs(int): Max number of training jobs to run
+        max_parallel_jobs(int): Max number of jobs to run in parallel
+        scale_pos_weight: Class imbalance weight scale
+        data_channels(dict): Dictionary of data channels to be used for training
+    Returns:
+        Output model s3 path
+    """
     xgb_model = sagemaker.estimator.Estimator(container,
                                         execution_role, 
                                         instance_count=instance_count, 

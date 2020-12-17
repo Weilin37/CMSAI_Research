@@ -1,5 +1,5 @@
 """
-A module that trains adverse events xgboost models.
+A module that anonymizes data (replacing patient ids with random alphanumeric characters)
 """
 
 import os
@@ -11,7 +11,14 @@ import pandas as pd
 
 
 def get_fpaths(data_dir, data_types):
-    """Get all csv filenames from directory."""
+    """
+    Get all csv filenames from directory.
+    Args:
+        data_dir(str): Data directory
+        data_types(list): List of data types to read
+    Returns:
+        List of csv file paths
+    """
     fpaths = []
     for data_type in data_types:
         my_data_dir = os.path.join(data_dir, data_type)
@@ -23,7 +30,14 @@ def get_fpaths(data_dir, data_types):
 
 
 def get_unique_values(fpaths, column):
-    """Get all unique values from all files in a given column."""
+    """
+    Get all unique values from all files in a given column.
+    Args:
+        fpaths(list): List file paths
+        column(str): Column chosen
+    Returns:
+        List of unique values 
+    """
     print('Getting unique values for the {} column...'.format(column))
     values = set()
     for fpath in fpaths:
@@ -36,7 +50,14 @@ def get_unique_values(fpaths, column):
 
 
 def _generate_strings(num_values=1000, length=16):
-    """Generate random strings for patient ids."""
+    """
+    Generate random strings for patient ids.
+    Args:
+        num_values(int): Number of strings to be generated
+        length(int): String length
+    Returns:
+        List of the generated strings
+    """
     def _generate_unique_string(generated_set, length):
         """
         Generate unique random string for patient id
@@ -60,7 +81,16 @@ def _generate_strings(num_values=1000, length=16):
 
 
 def get_all_mappings(unique_values, column, output_dir, string_length):
-    """Get mappings from the given unique values for a column to be anonymized."""
+    """
+    Get mappings from the given unique values for a column to be anonymized.
+    Args:
+        unique_values(list): List of unique values in a given column
+        column(str): Selected column
+        output_dir(str): Output directory
+        string_length(int): Random string length
+    Returns:
+        Path where all the mappings are saved
+    """
     print('Getting all mappings of values with randomly generated strings...')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -81,7 +111,13 @@ def get_all_mappings(unique_values, column, output_dir, string_length):
 
 
 def read_mappings(mappings_path):
-    """Read the patients mappings"""
+    """
+    Read the patients mappings
+    Args:
+        mappings_path(str): Mappings path
+    Returns:
+        Dict of mappings
+    """
     with open(mappings_path, 'r') as fp:
         mappings = json.load(fp)
     (keys,values) = zip(*mappings.items())
@@ -91,7 +127,16 @@ def read_mappings(mappings_path):
 
 
 def apply_mappings(filepaths, mappings, column, re_column2=None):
-    """Add mapping columns."""
+    """
+    Add mapping columns.
+    Args:
+        filepaths(list): List of file paths.
+        mappings(dict): Dictionary of mappings
+        column(str): Column name
+        re_column2(str): Second column selected
+    Returns:
+        None
+    """
     def _map_values(row, mappings, column, re_column2):
         """Get mapping for a dataframe row's specific column"""
         value = row[column]
@@ -131,47 +176,47 @@ if __name__ == "__main__":
     ANONYMIZED_COLUMN = 'patient_id'
     RANDOM_STRING_LENGTH = 9
 
-#     ## AE
-#     ROOT_DIR = '/home/ec2-user/SageMaker/CMSAI/modeling/tes/data/anonymize/AE/Data/'
-#     RAW_DIR = os.path.join(ROOT_DIR, 'Raw')
-#     OUTPUT_DIR = os.path.join(ROOT_DIR, 'Anonymized')
-#     RE_COLUMN2 = None
+    ## AE
+    ROOT_DIR = '/home/ec2-user/SageMaker/CMSAI/modeling/tes/data/anonymize/AE/Data/'
+    RAW_DIR = os.path.join(ROOT_DIR, 'Raw')
+    OUTPUT_DIR = os.path.join(ROOT_DIR, 'Anonymized')
+    RE_COLUMN2 = None
 
-#     DATA_TYPES = ['365NoDeath', '365TestPhase']
-#     MAPPINGS_PATH = os.path.join(OUTPUT_DIR, '{}_mappings.json'.format(ANONYMIZED_COLUMN))
+    DATA_TYPES = ['365NoDeath', '365TestPhase']
+    MAPPINGS_PATH = os.path.join(OUTPUT_DIR, '{}_mappings.json'.format(ANONYMIZED_COLUMN))
 
-#     print('ANONYMIZING AE DATA...')
-# #     #Creating the patient_id mappings dictionary
-# #     filepaths = get_fpaths(RAW_DIR, DATA_TYPES)
-# #     unique_values = get_unique_values(filepaths, ANONYMIZED_COLUMN)
-# #     mappings_path = get_all_mappings(unique_values, ANONYMIZED_COLUMN, OUTPUT_DIR, RANDOM_STRING_LENGTH)
+    print('ANONYMIZING AE DATA...')
+    #Creating the patient_id mappings dictionary
+    filepaths = get_fpaths(RAW_DIR, DATA_TYPES)
+    unique_values = get_unique_values(filepaths, ANONYMIZED_COLUMN)
+    mappings_path = get_all_mappings(unique_values, ANONYMIZED_COLUMN, OUTPUT_DIR, RANDOM_STRING_LENGTH)
 
-#     #Apply the mappings
-#     filepaths = get_fpaths(RAW_DIR, DATA_TYPES)
-#     mappings = read_mappings(MAPPINGS_PATH)
-#     apply_mappings(filepaths, mappings, ANONYMIZED_COLUMN, RE_COLUMN2)
+    #Apply the mappings
+    filepaths = get_fpaths(RAW_DIR, DATA_TYPES)
+    mappings = read_mappings(MAPPINGS_PATH)
+    apply_mappings(filepaths, mappings, ANONYMIZED_COLUMN, RE_COLUMN2)
 
 # ================================================================================
 
-#     # RE
-#     ROOT_DIR = '/home/ec2-user/SageMaker/CMSAI/modeling/tes/data/anonymize/RE/Data/'
-#     RAW_DIR = os.path.join(ROOT_DIR, 'Raw')
-#     OUTPUT_DIR = os.path.join(ROOT_DIR, 'Anonymized')
+    # RE
+    ROOT_DIR = '/home/ec2-user/SageMaker/CMSAI/modeling/tes/data/anonymize/RE/Data/'
+    RAW_DIR = os.path.join(ROOT_DIR, 'Raw')
+    OUTPUT_DIR = os.path.join(ROOT_DIR, 'Anonymized')
 
-#     DATA_TYPES = ['365', '365TestPhase']
-#     MAPPINGS_PATH = os.path.join(OUTPUT_DIR, '{}_mappings.json'.format(ANONYMIZED_COLUMN))
-#     RE_COLUMN2 = 'discharge_id'
+    DATA_TYPES = ['365', '365TestPhase']
+    MAPPINGS_PATH = os.path.join(OUTPUT_DIR, '{}_mappings.json'.format(ANONYMIZED_COLUMN))
+    RE_COLUMN2 = 'discharge_id'
 
-#     print('ANONYMIZING RE DATA...')
-# #     #Creating the patient_id mappings dictionary
-# #     filepaths = get_fpaths(RAW_DIR, DATA_TYPES)
-# #     unique_values = get_unique_values(filepaths, ANONYMIZED_COLUMN)
-# #     mappings_path = get_all_mappings(unique_values, ANONYMIZED_COLUMN, OUTPUT_DIR, RANDOM_STRING_LENGTH)
+    print('ANONYMIZING RE DATA...')
+    #Creating the patient_id mappings dictionary
+    filepaths = get_fpaths(RAW_DIR, DATA_TYPES)
+    unique_values = get_unique_values(filepaths, ANONYMIZED_COLUMN)
+    mappings_path = get_all_mappings(unique_values, ANONYMIZED_COLUMN, OUTPUT_DIR, RANDOM_STRING_LENGTH)
 
-#     #Apply the mappings
-#     filepaths = get_fpaths(RAW_DIR, DATA_TYPES)
-#     mappings = read_mappings(MAPPINGS_PATH)
-#     apply_mappings(filepaths, mappings, ANONYMIZED_COLUMN, RE_COLUMN2)
+    #Apply the mappings
+    filepaths = get_fpaths(RAW_DIR, DATA_TYPES)
+    mappings = read_mappings(MAPPINGS_PATH)
+    apply_mappings(filepaths, mappings, ANONYMIZED_COLUMN, RE_COLUMN2)
 
 # ================================================================================
 
@@ -185,10 +230,10 @@ if __name__ == "__main__":
     RE_COLUMN2 = 'discharge_id'
 
     print('ANONYMIZING RE WITH DATE DATA...')
-#     #Creating the patient_id mappings dictionary
-#     filepaths = get_fpaths(RAW_DIR, DATA_TYPES)
-#     unique_values = get_unique_values(filepaths, ANONYMIZED_COLUMN)
-#     mappings_path = get_all_mappings(unique_values, ANONYMIZED_COLUMN, OUTPUT_DIR, RANDOM_STRING_LENGTH)
+    #Creating the patient_id mappings dictionary
+    filepaths = get_fpaths(RAW_DIR, DATA_TYPES)
+    unique_values = get_unique_values(filepaths, ANONYMIZED_COLUMN)
+    mappings_path = get_all_mappings(unique_values, ANONYMIZED_COLUMN, OUTPUT_DIR, RANDOM_STRING_LENGTH)
 
     #Apply the mappings
     filepaths = get_fpaths(RAW_DIR, DATA_TYPES)

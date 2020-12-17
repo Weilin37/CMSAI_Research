@@ -1,5 +1,5 @@
 """
-A module that preprocesses adverse events and readmissions data to be ready for xgboost training.
+A module that preprocesses adverse events data to be ready for xgboost training.
 """
 
 import json
@@ -13,7 +13,16 @@ from collections import OrderedDict
 
 
 def get_frequent_features(vocab, num_features, codes_only=True, exclusion_list=[]): 
-    """Get the most frequent codes/features."""
+    """
+    Get the most frequent codes/features.
+    Args:
+        vocab(Object): Vocab object that contains all the vocabs
+        num_features(int): Number of features to be selected
+        codes_only(bool): Whether to select ICD10 codes only
+        exclusion_list(list): List of codes to be excluded (eg. labels events)
+    Returns:
+        List of most frequent features
+    """
     num_exc = len(exclusion_list) + 100
     features = vocab.freqs.most_common(num_features + num_exc)
     if codes_only:
@@ -26,15 +35,24 @@ def get_frequent_features(vocab, num_features, codes_only=True, exclusion_list=[
 
 
 def get_feature_ids(vocab, frequent_features):
-    """Get the corresponding dictionary ids of the for the selected frequent features."""
+    """
+    Get the corresponding dictionary ids of the for the selected frequent features.
+    Args:
+        vocab(Object): Vocab Object
+        frequent_features(list): List of most frequent features(events)
+    Returns:
+        Corresponding ids of the features in the vocab dict
+    """
     ft_ids = [vocab.stoi[ft] for ft in frequent_features]
     return ft_ids
 
 
 def get_one_hot_frequent_features(row, frequent_features):
-    """Gets one-hot encoding of the most frequent features of a given patient data
+    """
+    Gets one-hot encoding of the most frequent features of a given patient data
     Args:
         row(pd.Series): row to specify patient's specific adverse event
+        frequent_features(list): List of frequent features (events)
     Returns:
         Returns 0 if max value is 0 otherwise 1
     """
@@ -44,7 +62,14 @@ def get_one_hot_frequent_features(row, frequent_features):
 
 
 def read_numpy(numpy_path, columns=None):
-    """Read numpy file and return dataframe"""
+    """
+    Read numpy file and return dataframe
+    Args:
+        numpy_path(str): Numpy file path
+        columns(list): List of columns
+    Returns:
+        Dataframe of the loaded numpy file
+    """
     df = np.load(numpy_path)
     if columns is None:
         df = pd.DataFrame(df, columns=range(1,df.shape[1]+1))
@@ -54,7 +79,13 @@ def read_numpy(numpy_path, columns=None):
 
 
 def read_labels(labels_path):
-    """Read list of labels from path."""
+    """
+    Read list of labels from path
+    Args:
+        labels_path(str): Labels/Classes file path
+    Returns:
+        List of classes/labels
+    """
     with open(labels_path, 'r') as fp:
         labels = fp.readlines()
         labels = [label.strip() for label in labels]
@@ -62,14 +93,33 @@ def read_labels(labels_path):
 
 
 def get_class_imbalance(df_y):
-    """Get class imbalance for all the target variables."""
+    """
+    Get class imbalance for all the target variables.
+    Args:
+        df_y(DataFrame): Dataframe that contains # of positive and negative examples for each class
+    Returns:
+        Dictionary of class imbalances for each class
+    """
     imbalance = df_y.apply(lambda x: x.value_counts()).transpose().values.tolist()
     imbalance = dict(zip(df_y.columns.tolist(), imbalance))
     return imbalance
 
 
 def preprocess(numpy_x_path, numpy_y_path, features, features_ids, labels, split, output_dir, class_imbalance_path=None):
-    """Transform the predictor data to one-hot encoding and aggregate with target data."""
+    """
+    Transform the predictor data to one-hot encoding and aggregate with target data.
+    Args:
+        numpy_x_path(str): Numpy file path of X data
+        numpy_y_path(str): Numpy file path of y data
+        features(list): List of features/events
+        features_ids(list): Corresponding list of feature ids
+        labels(list): List of classes
+        split(str): Dataset split
+        output_dir(str): Output directory
+        class_imbalance_path(str): Classes imbalances path
+    Returns:
+        Dataframe of the preprocessed data
+    """
     print('Preprocessing and saving {} data...'.format(split))
     df_x = read_numpy(numpy_x_path, columns=None)
     df_y = read_numpy(numpy_y_path, columns=labels)
@@ -93,7 +143,17 @@ def preprocess(numpy_x_path, numpy_y_path, features, features_ids, labels, split
 
 
 def prepare(df, num_features_list, labels, output_dir, split='train'):
-    """Prepares data for model training."""
+    """
+    Prepares data for model training.
+    Args:
+        df(Dataframe): Preprocessed data
+        num_features_list(list): List of the number of features to be selected
+        labels(list): List of classes
+        output_dir(str): Output directory
+        split(str): Dataset split
+    Returns:
+        None
+    """
     num_targets = len(labels)
     features = df.columns.tolist()[:-num_targets]
     for num_features in num_features_list:

@@ -1,5 +1,5 @@
 """
-A module that preprocesses adverse events and readmissions data to be ready for xgboost training.
+A module that preprocesses readmissions data to be ready for xgboost training.
 """
 
 import json
@@ -14,7 +14,16 @@ from collections import OrderedDict
 
 
 def get_frequent_features(vocab, num_features, codes_only=True, exclusion_list=[]): 
-    """Get the most frequent codes/features."""
+    """
+    Get the most frequent codes/features.
+    Args:
+        vocab(Object): Vocab object
+        num_features(int): # of features
+        codes_only(bool): Wether to use ICD codes as features
+        exclution_list(list): List of events/keys to excluded from features
+    Returns:
+        List of most frequent features
+    """
     num_exc = len(exclusion_list) + 100
     features = vocab.freqs.most_common(num_features + num_exc)
     if codes_only:
@@ -39,7 +48,12 @@ def get_one_hot_frequent_features(row, frequent_features):
 
 
 def read_labels(labels_path):
-    """Read list of labels from path."""
+    """Read list of labels from path.
+    Args:
+        labels_path(str): Classes path
+    Returns:
+        List of classes
+    """
     with open(labels_path, 'r') as fp:
         labels = fp.readlines()
         labels = [label.strip() for label in labels]
@@ -47,14 +61,29 @@ def read_labels(labels_path):
 
 
 def get_class_imbalance(df_y):
-    """Get class imbalance for all the target variables."""
+    """Get class imbalance for all the target variables.
+    Args:
+        df_y(DataFrame): Dataframe of class imbalances
+    Returns:
+        Dictionary of class imbalances
+    """
     imbalance = df_y.apply(lambda x: x.value_counts()).transpose().values.tolist()
     imbalance = dict(zip(df_y.columns.tolist(), imbalance))
     return imbalance
 
 
 def preprocess(df, features, label, fold, split, output_dir, class_imbalance_fname=None):
-    """Transform the predictor data to one-hot encoding and aggregate with target data."""
+    """Transform the predictor data to one-hot encoding and aggregate with target data.
+    Args:
+        df(DataFrame): Data to be preprocessed
+        features(list): List of features
+        label(str): Class/label name
+        split(str): Dataset split
+        output_dir(str): Output directory
+        class_imbalance_fname(str): Class imbalance filename
+    Returns:
+        Preprocessed data in dataframe
+    """
     print('Preprocessing and saving fold={} and split={} data...'.format(fold, split))
     df = df[df[label].notna()]
     
@@ -83,7 +112,17 @@ def preprocess(df, features, label, fold, split, output_dir, class_imbalance_fna
 
 
 def prepare(df, num_features_list, label, output_dir, fold, split='train'):
-    """Prepares data for model training."""
+    """Prepares data for model training.
+    Args:
+        df(DataFrame): Data to be ready for training
+        num_features_list(list): List of number of features
+        label(str): Class/label name
+        output_dir(str): Output directory
+        fold: Data fold number
+        split(str): Dataset split
+    Returns:
+        None
+    """
     num_targets = 1
     features = df.columns.tolist()[:-num_targets]
     for num_features in num_features_list:
@@ -100,7 +139,15 @@ def prepare(df, num_features_list, label, output_dir, fold, split='train'):
 
 
 def get_all_data_from_folds(data_root_dir, folds, data_all):
-    """Integrate all the data from folds to be used for final training."""
+    """
+    Integrate all the data from folds to be used for final training.
+    Args:
+        data_root_dir(str): Root data dir
+        folds(list): List of data folds
+        data_all(str): Name of all data folder
+    Returns:
+        All data in dataframe format
+    """
     output_dir = os.path.join(data_root_dir, data_all)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -119,7 +166,16 @@ def get_all_data_from_folds(data_root_dir, folds, data_all):
 
 
 def combine_all_vocabs(data_dir, folds, data_all= 'all', vocab_fname='vocab_1000_vall_30days'):
-    """Combine all vocabularies and save to disk."""
+    """
+    Combine all vocabularies and save to disk.
+    Args:
+        data_dir(str): Data directory
+        folds(list): List of dataset folds
+        data_all(str): All data folder
+        vocab_fname(str): Vocab filename
+    Returns:
+        Combined vocab output file path
+    """
     def combine_vocabs(vocab1, vocab2):
         """Combine two vocabularies."""
         freqs = vocab1.freqs + vocab2.freqs
