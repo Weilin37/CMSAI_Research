@@ -140,7 +140,7 @@ class TransformerCNNModel(nn.Module):
         self.ff.bias.data.zero_()
         self.ff.weight.data.uniform_(-initrange, initrange)
 
-    def forward(self, src, mask=None):
+    def forward0(self, src, mask=None):
         """
         Forward propagation steps:
         - convert events into embedding vectors & positional encoding
@@ -148,6 +148,7 @@ class TransformerCNNModel(nn.Module):
         - CNN layer
         - final 
         """
+        #import pdb; pdb.set_trace()
         # create mask to remove padded entries from calculations for interpretability
         if mask is not None:
             mask = mask.view(mask.size()[0], -1)
@@ -186,3 +187,50 @@ class TransformerCNNModel(nn.Module):
 
         return output, importance_out
     
+
+    def forward(self, src, mask=None):
+        """
+        Forward propagation steps:
+        - convert events into embedding vectors & positional encoding
+        - transformer encoder layers
+        - CNN layer
+        - final 
+        """
+        import pdb; pdb.set_trace()
+        # create mask to remove padded entries from calculations for interpretability
+        if mask is not None:
+            mask = mask.view(mask.size()[0], -1)
+            src_mask = mask == 0
+            src_mask = src_mask.view(src_mask.size()[0], -1)
+            out_mask = (
+                mask.float()
+                .masked_fill(mask == 0.0, float(-1000.0))
+                .masked_fill(mask == 2.0, float(-1000.0))
+                .masked_fill(mask == 1.0, float(0.0))
+                .view(mask.size()[0], -1)
+            )
+
+        src = self.seq_embedding(src).transpose(0, 1) * math.sqrt(self.ninp)
+        src = self.pos_encoder(src)
+        #print('src', src.shape)
+        trans_output = (
+            self.transformer_encoder(src, src_key_padding_mask=src_mask)
+            .transpose(0, 1)
+            .transpose(1, 2)
+        )
+        #print('#out', trans_output.shape)
+        final_feature_map = self.Conv1d(trans_output).squeeze()
+        #print(final_feature_map.shape)
+    
+        # if out_mask is not None:
+        # extract normalized feature importances per prediction
+        importance_out = self.softmax(final_feature_map + out_mask)
+
+        output = self.ff(final_feature_map)
+        output = self.fc(output)
+
+        # ensure no accidental additional dimensions
+        if len(output.size()) != 2:
+            output = output.view(1, 2)
+
+        return output, importance_out
