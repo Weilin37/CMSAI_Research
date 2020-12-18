@@ -1,7 +1,11 @@
 """Utils related to lstm models and dataset vocab."""
 
+import pandas as pd
+import numpy as np
 import copy
 from sklearn.metrics import roc_auc_score
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from collections import Counter
 import torch
@@ -239,7 +243,7 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0):
         predictions = model(idxed_text)
         # predictions = model(text, text_lengths).squeeze(1)
 
-        loss = criterion(predictions, labels.squeeze(1))
+        loss = criterion(predictions, labels.type_as(predictions))
         loss.backward()
         optimizer.step()
 
@@ -259,8 +263,11 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0):
                 break
             counter += 1
 
+#     epoch_metric = roc_auc_score(
+#         order_labels, torch.sigmoid(torch.Tensor(prediction_scores)[:, 1])
+#     )
     epoch_metric = roc_auc_score(
-        order_labels, torch.sigmoid(torch.Tensor(prediction_scores)[:, 1])
+        order_labels, torch.sigmoid(torch.Tensor(prediction_scores))
     )
 
     return epoch_loss / len(dataloader), epoch_metric
@@ -316,8 +323,8 @@ def epoch_val_lstm(model, dataloader, criterion, return_preds=False, test=0):
             idxed_text, labels = idxed_text.cuda(), labels.cuda()
 
             predictions = model(idxed_text)
-            loss = criterion(predictions, labels.squeeze(1))
-
+            #loss = criterion(predictions, labels.squeeze(1))
+            loss = criterion(predictions, labels.type_as(predictions))
             epoch_loss += loss.item()
 
             # prevent internal pytorch timeout due to too many file opens by multiprocessing
@@ -335,7 +342,32 @@ def epoch_val_lstm(model, dataloader, criterion, return_preds=False, test=0):
                 counter += 1
 
     epoch_metric = roc_auc_score(
-        order_labels, torch.sigmoid(torch.Tensor(prediction_scores)[:, 1])
+        order_labels, torch.sigmoid(torch.Tensor(prediction_scores))
     )
 
     return epoch_loss / len(dataloader), epoch_metric
+
+
+def get_per_patient_shap(shap_values, data, vocab, idx=0):
+    """Get shap values for a single patient."""
+    pat_shap_values = []
+    patient_id, _, token_idxes = data
+    patient_id = patient_id[idx]
+    token_idxes = token_idxes[idx]
+    events = []
+    
+    for (i, w) in enumerate(token_idxes):
+        pat_shap_values.append(shap_values[idx, i, w].item())
+        events.append(vocab.itos(w.item()))
+    df = pd.DataFrame(np.array([events, pat_shap_values]).T, columns=['events', 'shap_vals'])
+    df["shap_vals"] = pd.to_numeric(df["shap_vals"])
+    return df, patient_id
+
+def plot_shap_values(df, patient_id, sort=False):
+    if sort:
+        df = df.reindex(df.shap_vals.abs().sort_values(ascending=False).index).reset_index()
+    plt.figure(figsize=(20, 10))
+    ax = sns.barplot(x=df.index, y=df.shap_vals, orient='v')
+    z = ax.set_xticklabels(df.events, rotation=90)
+    plt.title('Patient ID: {}'.format(patient_id))
+    plt.show()

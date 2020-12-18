@@ -40,7 +40,7 @@ class SimpleLSTM(nn.Module):
         )
 
         self.pred_layer = (
-            nn.Linear(hidden_dim * 2, 2) if bidi else nn.Linear(hidden_dim, 2)
+            nn.Linear(hidden_dim * 2, 1) if bidi else nn.Linear(hidden_dim, 1)
         )
 
         self.init_weights()
@@ -145,7 +145,8 @@ class SimpleLSTM(nn.Module):
         hidden = self.repackage_hidden()
 
         emb = torch.matmul(token_ids, self.emb_layer.weight).unsqueeze(0)
-
+        print(emb.shape)
+        
         out, _ = self.lstm(emb, hidden)
 
         return self.pred_layer(out).squeeze(0)
