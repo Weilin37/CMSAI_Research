@@ -104,75 +104,113 @@ def get_sequences(
 
 
 def get_simple_dataset(seq_len, uid_len, uid_colname, count_dict, tokens):
-    """Get a simple toy dataset."""
-    ppp = get_sequences(
-        adverse=1,
-        helper=1,
-        unhelper=0,
-        seq_len=seq_len,
-        label=1,
-        uid_len=uid_len,
-        uid_colname=uid_colname,
-        n_seq=count_dict["n_ppp_adverse"],
-        tokens=tokens,
-    )
-    pp = get_sequences(
-        adverse=1,
-        helper=0,
-        unhelper=0,
-        seq_len=seq_len,
-        label=1,
-        uid_len=uid_len,
-        uid_colname=uid_colname,
-        n_seq=count_dict["n_pp_adverse"],
-        tokens=tokens,
-    )
-    p = get_sequences(
-        adverse=0,
-        helper=3,
-        unhelper=0,
-        seq_len=seq_len,
-        label=1,
-        uid_len=uid_len,
-        uid_colname=uid_colname,
-        n_seq=count_dict["n_p_adverse"],
-        tokens=tokens,
-    )
-    nnn = get_sequences(
-        adverse=0,
-        helper=0,
-        unhelper=3,
-        seq_len=seq_len,
-        label=0,
-        uid_len=uid_len,
-        uid_colname=uid_colname,
-        n_seq=count_dict["n_nnn_adverse"],
-        tokens=tokens,
-    )
-    nn = get_sequences(
-        adverse=0,
-        helper=1,
-        unhelper=2,
-        seq_len=seq_len,
-        label=0,
-        uid_len=uid_len,
-        uid_colname=uid_colname,
-        n_seq=count_dict["n_nn_adverse"],
-        tokens=tokens,
-    )
-    n = get_sequences(
-        adverse=0,
-        helper=2,
-        unhelper=1,
-        seq_len=seq_len,
-        label=0,
-        uid_len=uid_len,
-        uid_colname=uid_colname,
-        n_seq=count_dict["n_n_adverse"],
-        tokens=tokens,
-    )
+    """Generate a simple toy dataset.
+    
+    Arg:
+    -----
+        seq_len (int) : length of the generated sequence
+        uid_len (int) : length of uid token
+        uid_colname (str) : name of uid column, usually patient_id
+        count_dict (dict) : dictionary of various sequence types.
+            6 different types are allowed:
+                n_ppp_adverse, n_pp_adverse, n_p_adverse
+                n_nnn_adverse, n_nn_adverse, n_n_adverse
+        tokens (dict) : dictionary of the various token types
+                
+    Returns:
+    --------
+        dataset (dataframe) : dataframe containing all the 
+                              generated dataset, randomly mixed 
+    
+    """
+    
+    cat_lst = []
+    
+    if "n_ppp_adverse" in count_dict:
+        ppp = get_sequences(
+            adverse=1,
+            helper=1,
+            unhelper=0,
+            seq_len=seq_len,
+            label=1,
+            uid_len=uid_len,
+            uid_colname=uid_colname,
+            n_seq=count_dict["n_ppp_adverse"],
+            tokens=tokens,
+        )
+        cat_lst.append(ppp)
+        
+    if "n_pp_adverse" in count_dict:  
+        pp = get_sequences(
+            adverse=1,
+            helper=0,
+            unhelper=0,
+            seq_len=seq_len,
+            label=1,
+            uid_len=uid_len,
+            uid_colname=uid_colname,
+            n_seq=count_dict["n_pp_adverse"],
+            tokens=tokens,
+        )
+        cat_lst.append(pp)
+        
+    if "n_p_adverse" in count_dict:
+        p = get_sequences(
+            adverse=0,
+            helper=3,
+            unhelper=0,
+            seq_len=seq_len,
+            label=1,
+            uid_len=uid_len,
+            uid_colname=uid_colname,
+            n_seq=count_dict["n_p_adverse"],
+            tokens=tokens,
+        )
+        cat_lst.append(p)
+        
+    if "n_nnn_adverse" in count_dict:
+        nnn = get_sequences(
+            adverse=0,
+            helper=0,
+            unhelper=3,
+            seq_len=seq_len,
+            label=0,
+            uid_len=uid_len,
+            uid_colname=uid_colname,
+            n_seq=count_dict["n_nnn_adverse"],
+            tokens=tokens,
+        )
+        cat_lst.append(nnn)
+    
+    if "n_nn_adverse" in count_dict:
+        nn = get_sequences(
+            adverse=0,
+            helper=1,
+            unhelper=2,
+            seq_len=seq_len,
+            label=0,
+            uid_len=uid_len,
+            uid_colname=uid_colname,
+            n_seq=count_dict["n_nn_adverse"],
+            tokens=tokens,
+        )
+        cat_lst.append(nn)
+        
+    if "n_n_adverse" in count_dict:
+        n = get_sequences(
+            adverse=0,
+            helper=2,
+            unhelper=1,
+            seq_len=seq_len,
+            label=0,
+            uid_len=uid_len,
+            uid_colname=uid_colname,
+            n_seq=count_dict["n_n_adverse"],
+            tokens=tokens,
+        )
+        cat_lst.append(n)
 
-    dataset = pd.concat([ppp, pp, p, n, nn, nnn], axis=0)
+    dataset = pd.concat(cat_lst, axis=0)
     dataset.reset_index(inplace=True)
     indexes = [idx for idx in range(dataset.shape[0])]
     random.shuffle(indexes)

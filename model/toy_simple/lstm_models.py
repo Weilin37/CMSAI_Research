@@ -16,6 +16,7 @@ class SimpleLSTM(nn.Module):
         bidi=True,
         use_gpu=True,
         pad_idx=0,
+        dropout=None
     ):
         super(SimpleLSTM, self).__init__()
 
@@ -31,22 +32,34 @@ class SimpleLSTM(nn.Module):
         self.hidden_dim = hidden_dim
         self.bidi = bidi
         self.nlayers = nlayers
-        self.lstm = nn.LSTM(
-            input_size=emb_dim,
-            hidden_size=hidden_dim,
-            num_layers=nlayers,
-            bidirectional=bidi,
-            batch_first=True,
-        )
+        
+        if dropout is None:
+            self.lstm = nn.LSTM(
+                input_size=emb_dim,
+                hidden_size=hidden_dim,
+                num_layers=nlayers,
+                bidirectional=bidi,
+                batch_first=True
+            )
+        else:
+            self.lstm = nn.LSTM(
+                input_size=emb_dim,
+                hidden_size=hidden_dim,
+                num_layers=nlayers,
+                bidirectional=bidi,
+                batch_first=True,
+                dropout=dropout
+            )            
 
         self.pred_layer = (
             nn.Linear(hidden_dim * 2, 1) if bidi else nn.Linear(hidden_dim, 1)
         )
-
+        
+        self.dpt = nn.Dropout(dropout) if dropout is not None else dropout
         self.init_weights()
 
     def init_weights(self):
-        initrange = 0.3
+        initrange = 0.1
         self.emb_layer.weight.data.uniform_(-initrange, initrange)
 
         self.pred_layer.weight.data.uniform_(-initrange, initrange)
@@ -80,7 +93,11 @@ class SimpleLSTM(nn.Module):
             return (v.detach() for v in h)
 
     def forward(self, tokens):
-        embedded = self.emb_layer(tokens)
+        
+        if self.dpt is not None:
+            embedded = self.dpt(self.emb_layer(tokens))
+        else:
+            embedded = self.emb_layer(tokens)
 
         hidden = self.init_hidden(tokens.shape[0])
         hidden = self.repackage_hidden()
@@ -103,8 +120,11 @@ class SimpleLSTM(nn.Module):
             )
         else:
             out = output[:, -1, :]
-
-        pred = self.pred_layer(out)
+        
+        if self.dpt is not None:
+            pred = self.pred_layer(self.dpt(out))
+        else:
+            pred = self.pred_layer(out)
 
         return pred
 
@@ -144,9 +164,23 @@ class SimpleLSTM(nn.Module):
         hidden = self.init_hidden(1)
         hidden = self.repackage_hidden()
 
+        token_ids[sum(mask):, :] = 0
         emb = torch.matmul(token_ids, self.emb_layer.weight).unsqueeze(0)
-        print(emb.shape)
-        
-        out, _ = self.lstm(emb, hidden)
+        #import IPython.core.debugger
 
-        return self.pred_layer(out).squeeze(0)
+        #dbg = IPython.core.debugger.Pdb()
+        #dbg.set_trace()
+                
+        ## LL TODO: FIX MASK ZEROS
+        output, _ = self.lstm(emb, hidden)
+        
+        if self.bidi:
+            out = torch.cat(
+                [output[:, -1, : self.hidden_dim], output[:, 0, self.hidden_dim :]],
+                dim=1,
+            )
+        else:
+            out = output[:, -1, :]
+
+        return self.pred_layer(out).unsqueeze(0)
+

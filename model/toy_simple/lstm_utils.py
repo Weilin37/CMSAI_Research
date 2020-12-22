@@ -344,6 +344,9 @@ def epoch_val_lstm(model, dataloader, criterion, return_preds=False, test=0):
     epoch_metric = roc_auc_score(
         order_labels, torch.sigmoid(torch.Tensor(prediction_scores))
     )
+    
+    if return_preds:
+        return epoch_loss / len(dataloader), epoch_metric, order_labels, torch.sigmoid(torch.Tensor(prediction_scores))
 
     return epoch_loss / len(dataloader), epoch_metric
 
