@@ -34,6 +34,9 @@ class AttentionRNN(nn.Module):
         self.padding_idx = padding_idx
         self.device = device if device is not None else 'cpu'
         
+        #TODO: Added
+        self.batch_size = 2048
+        
         # define model layers
         self.embedding = (nn.Embedding(vocab_size, embedding_dim, padding_idx=padding_idx) 
                           if padding_idx is not None else
@@ -110,7 +113,7 @@ class AttentionRNN(nn.Module):
         return (weight.new_zeros(directionality, batch_size, self.hidden_dim),
                 weight.new_zeros(directionality, batch_size, self.hidden_dim))
     
-    def repackage_hidden(h):
+    def repackage_hidden(self, h):
         """
         Wraps hidden states in new Tensors, to detach them from their history.
 
@@ -122,7 +125,18 @@ class AttentionRNN(nn.Module):
         else:
             return tuple(self.repackage_hidden(v) for v in h)
     
-    def forward(self, text, text_lengths, hidden, explain=False):
+    #def forward(self, text, text_lengths, hidden, explain=False):
+    def forward(self, text, text_lengths=None, batch_size=2048, explain=False):       
+        #TODO: Added
+        h = self.init_hidden(batch_size)
+        #hidden = self.repackage_hidden(h)
+        if isinstance(h, torch.Tensor):
+            hidden = h.detach()
+        else:
+            hidden = tuple(self.repackage_hidden(v) for v in h)
+        text_lengths = torch.tensor(np.ones([batch_size])*500)
+        #import pdb; pdb.set_trace()
+        ##End TODO
         
         embedded = self.dropout(self.embedding(text))
         

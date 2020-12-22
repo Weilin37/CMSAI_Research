@@ -422,7 +422,158 @@ def epoch_val_lstm(
         return_tuple = return_tuple + ((ids_lst, prediction_scores, order_labels, attn, feat),)
 
     return return_tuple
+
+
+def epoch_val_lstm_v2(
+    model, dataloader, criterion, return_preds=False, test=0, max_len=1000
+):
+    """
+    Evaluate model on a dataset
     
+    Args:
+        model : any pytorch model with defined forward
+        dataloader : iterator for dataset, yields (ids, sequence, seq length, labels)
+        criterion: loss function
+        device: cpu or gpu
+        return_preds : bool default False
+                       If enabled, returns (ids, predictions, labels, attn, events)
+                       
+        detach_hidden : bool default False
+                        Set to true if AttentionRNN is used
+                        Model must have .init_hidden function defined
+        batch_size : int default 0
+                     used when detach_hidden is enabled
+                     to create the correct hidden sizes during initialization
+        max_len (int) : maximum length for attention
+                     
+    Returns:
+        tuple containing:
+            average loss for whole epoch,
+            average AUC for whole epoch
+            if return_preds is enabled, also returns additional tuple:
+                ids,
+                predictions
+                labels
+                attn,
+                events
+    """
+    import copy
+    from sklearn.metrics import roc_auc_score
+
+    def repackage_hidden(h):
+        """
+        Wraps hidden states in new Tensors, to detach them from their history.
+        Needed to prevent RNN+Attention backpropagating between batches.
+        """
+        if isinstance(h, torch.Tensor):
+            return h.detach()
+        else:
+            return tuple(repackage_hidden(v) for v in h)
+
+    def detach_and_copy(val):
+        copied = copy.deepcopy(val.detach().cpu().numpy())
+        del val
+        return copied
+
+    epoch_loss = 0
+    epoch_acc = 0
+
+    model.eval()
+
+    # initialize lists to compare predictions & ground truth labels for metric calculation
+    order_labels = []
+    prediction_scores = []
+
+    if return_preds:
+        ids_lst = []
+        attn = [None] * len(dataloader)
+        feat = [None] * len(dataloader)
+
+    if test:  # test function on small number of batches
+        counter = 0
+    with torch.no_grad():
+
+        for idx, (ids, text, text_lengths, labels) in enumerate(dataloader):
+
+            text, text_lengths, labels = (
+                text.to(model.device),
+                text_lengths,
+                labels.to(model.device),
+            )
+
+            #hidden = model.init_hidden(text.shape[0])
+            #hidden = repackage_hidden(hidden)
+
+            predictions, hidden, attn_weights = model(
+                text, text_lengths, text.shape[0], explain=True
+            )
+
+            loss = criterion(predictions, labels.type_as(predictions))
+
+            epoch_loss += loss.item()
+
+            # prevent internal pytorch timeout due to too many file opens by multiprocessing
+            order_labels.extend(detach_and_copy(labels))
+            prediction_scores.extend(detach_and_copy(predictions))
+
+            if return_preds:
+                ids_lst.extend(copy.deepcopy(ids))
+                attn[idx] = detach_and_copy(attn_weights)
+                feat[idx] = detach_and_copy(text)
+
+            epoch_loss += loss.item()
+
+            if test:
+                if counter >= test:
+                    break
+                counter += 1
+
+    epoch_metric = roc_auc_score(order_labels, torch.sigmoid(torch.Tensor(prediction_scores)))
+
+    return_tuple = (epoch_loss / len(dataloader), epoch_metric)
+    
+    if return_preds:
+        #print(len(attn))
+        #print(attn)
+        # return sizing not always consistent: ensure same dimensions and length
+        attn = [
+            np.squeeze(cur_attn, 2) if len(cur_attn.shape) == 3 else cur_attn
+            for cur_attn in attn
+        ]
+        
+        attn = [
+            np.concatenate(  # append with zeros
+                (
+                    cur_attn,
+                    np.zeros(
+                        (cur_attn.shape[0], abs(cur_attn.shape[1] - 1000))
+                    ),
+                ),
+                1,
+            )
+            if cur_attn.shape[1] != 1000
+            else cur_attn
+            for cur_attn in attn
+        ]
+        attn = np.concatenate(attn)
+            
+        feat = [
+            np.concatenate(
+                (cur_feat, 
+                 np.zeros(
+                    (cur_feat.shape[0], abs(cur_feat.shape[1] - 1000)))
+                ), 1
+            )
+            if cur_feat.shape[1] != 1000
+            else cur_feat
+            for cur_feat in feat
+            
+        ]
+        feat = np.concatenate(feat)
+        
+        return_tuple = return_tuple + ((ids_lst, prediction_scores, order_labels, attn, feat),)
+
+    return return_tuple
 
 
 def get_average_accuracy(preds, y):
