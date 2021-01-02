@@ -133,21 +133,29 @@ class CustomPyTorchDeepIDExplainer(Explainer):
             return [np.stack(grads)]
         
         else:
+            print('gradient')
             X = [x.requires_grad_() for x in inputs]
+            print('gradient 2')
             # outputs = self.model(*X)
             outputs = self.get_output(X, masks)
             # print(outputs.shape)
             selected = [val for val in outputs[:, idx]]
+            print('gradient 2.2')
             if self.interim:
+                print('gradient if')
                 interim_inputs = self.layer.target_input
                 grads = [
                     torch.autograd.grad(selected, input)[0].cpu().numpy()
                     for input in interim_inputs
                 ]
+                
                 del self.layer.target_input
                 return grads, [i.detach().cpu().numpy() for i in interim_inputs]
+                print('gradient 3')
             else:
+                print('gradient else')
                 grads = [torch.autograd.grad(selected, x)[0].cpu().numpy() for x in X]
+                print('gradient 4')
                 return grads
 
             
@@ -207,7 +215,9 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                     
 
     def shap_1_value(self, args):
-        model_output_ranks, X, masks, j = args
+        model_output_ranks, X, masks, i, j = args
+        print('I am here 0')
+        #print('Processing {}...'.format(j))
         # tile the inputs to line up with the background data samples
         phis_j = []
         tiled_X = [
@@ -217,7 +227,7 @@ class CustomPyTorchDeepIDExplainer(Explainer):
             )
             for l in range(len(X))
         ]
-
+        print('I am here 1')
         # cat tiled_X and background together
         joint_x = [
             torch.cat((tiled_X[l], self.data[l]), dim=0) for l in range(len(X))
@@ -225,7 +235,7 @@ class CustomPyTorchDeepIDExplainer(Explainer):
         joint_masks = [masks[j]] * self.data[0].shape[0] + self.masks
         #joint_masks = [masks[j]] * (self.data[0].shape[0] + len(self.masks))
         # mask is min(test_obs, background)
-
+        print('I am here 2')
         #import IPython.core.debugger
 
         #dbg = IPython.core.debugger.Pdb()
@@ -238,7 +248,7 @@ class CustomPyTorchDeepIDExplainer(Explainer):
         # j = n_row_in_test
         feature_ind = model_output_ranks[j, i]
         sample_phis = self.gradient(feature_ind, joint_x, joint_masks)
-
+        print('I am here 3')
         # assign the attributions to the right part of the output arrays
         if self.interim:
             sample_phis, output = sample_phis
@@ -266,8 +276,8 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                 #    torch.from_numpy(sample_phis[l][self.data[l].shape[0] :])
                 #    * (X[l][j : j + 1] - self.data[l]).cpu()
                 #).mean(0) #average out [200, 30, 32] into [30, 32]
-                
-        return [j, phis_j]
+        print('One Process Successfully Completed!')       
+        return [i, j, phis_j]
 
     def shap_values_parallel(self, X, masks, ranked_outputs=None, output_rank_order="max"):
 
@@ -316,7 +326,6 @@ class CustomPyTorchDeepIDExplainer(Explainer):
         output_phis = []
         # print(model_output_ranks.shape)
         
-        import pdb; pdb.set_trace()
         for i in range(model_output_ranks.shape[1]):
             
             # initialize phis
@@ -331,8 +340,9 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                     phis.append(np.zeros(X[k].shape))
                     
             # calculate for each test observation (in parallel)
-            args = [(model_output_ranks, X, masks, j) for j in range(X[0].shape[0])]
-            pool = Pool(3)      # Create a multiprocessing Pool
+            args = [(model_output_ranks, X, masks, i, j) for j in range(X[0].shape[0])]
+            #pool = Pool(os.cpu_count())      # Create a multiprocessing Pool
+            pool = Pool(3)
             output_phis = pool.map(self.shap_1_value, args)
             pool.close()
             pool.join()                
@@ -493,7 +503,7 @@ class CustomPyTorchDeepIDExplainer(Explainer):
         else:
             return output_phis
 
-'''
+
 # Module hooks
 def deeplift_grad(module, grad_input, grad_output):
     """The backward hook which computes the deeplift
@@ -549,7 +559,7 @@ def add_interim_values(module, input, output):
                     setattr(module, "y", torch.nn.Parameter(output.detach()))
             if module_type in failure_case_modules:
                 input[0].register_hook(deeplift_tensor_grad)
-'''
+
 
 def get_target_input(module, input, output):
     """A forward hook which saves the tensor - attached to its graph.
