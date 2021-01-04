@@ -1,37 +1,37 @@
 adverse_tokens:
-- AMI
-- PH
-- ARR
-- CHF
+- AMI_A
+- PH_A
+- ARR_A
+- CHF_A
 
 adverse_helper_tokens:
-- apnea
-- furosemide
-- pneumonia
-- high_creatinine
-- tachycardia
-- resistent_hyp
+- apnea_H
+- furosemide_H
+- pneumonia_H
+- high_creatinine_H
+- tachycardia_H
+- resistent_hyp_H
 
 adverse_unhelper_tokens:
-- PCI
-- cardiac_rehab
-- normal_bmi
-- low_salt_diet
-- ACE_inhibitors
+- PCI_U
+- cardiac_rehab_U
+- normal_bmi_U
+- low_salt_diet_U
+- ACE_inhibitors_U
 
 noise_tokens:
-- eye_exam
-- annual_physical
-- hay_fever
-- headache
-- foot_pain
-- backache
-- cold_sore
-- myopia
-- cut_finger
-- ankle_sprain
-- ACL_tear
-- quad_injury
-- dental_exam
-- ingrown_nail
-- peanut_allergy
+- eye_exam_N
+- annual_physical_N
+- hay_fever_N
+- headache_N
+- foot_pain_N
+- backache_N
+- cold_sore_N
+- myopia_N
+- cut_finger_N
+- ankle_sprain_N
+- ACL_tear_N
+- quad_injury_N
+- dental_exam_N
+- ingrown_nail_N
+- peanut_allergy_N
