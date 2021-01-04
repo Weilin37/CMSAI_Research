@@ -16,7 +16,8 @@ class SimpleLSTM(nn.Module):
         bidi=True,
         use_gpu=True,
         pad_idx=0,
-        dropout=None
+        dropout=None,
+        init_type='zero'
     ):
         super(SimpleLSTM, self).__init__()
 
@@ -32,6 +33,25 @@ class SimpleLSTM(nn.Module):
         self.hidden_dim = hidden_dim
         self.bidi = bidi
         self.nlayers = nlayers
+        
+        self.init_type = init_type if init_type is 'learned' else 'zero'
+        
+        if self.init_type == 'learned':
+            count = self.nlayers * 2 if self.bidi else self.nlayers
+            directionality = 1 #2 if self.bidi else 1
+            
+            h0 = torch.zeros(count * directionality, 1, self.hidden_dim)
+            c0 = torch.zeros(count * directionality, 1, self.hidden_dim)
+            
+            nn.init.xavier_normal_(h0, gain=nn.init.calculate_gain('relu'))
+            nn.init.xavier_normal_(c0, gain=nn.init.calculate_gain('relu'))
+            
+            self.h0 = nn.Parameter(
+                h0,
+                requires_grad=True)
+            self.c0 = nn.Parameter(
+                c0,
+                requires_grad=True)
         
         if dropout is None:
             self.lstm = nn.LSTM(
@@ -70,7 +90,7 @@ class SimpleLSTM(nn.Module):
 
         weight = next(self.parameters())
 
-        directionality = 2 if self.bidi else 1
+        directionality = 1 #2 if self.bidi else 1
         weights = (
             weight.new_zeros(count * directionality, batch_size, self.hidden_dim),
             weight.new_zeros(count * directionality, batch_size, self.hidden_dim),
@@ -81,7 +101,7 @@ class SimpleLSTM(nn.Module):
 
         return weights
 
-    def repackage_hidden(h):
+    def repackage_hidden(self, h):
         """
         Wraps hidden states in new Tensors, to detach them from their history.
         Needed to prevent RNN+Attention backpropagating between batches.
@@ -90,7 +110,7 @@ class SimpleLSTM(nn.Module):
             return h.detach()
 
         if isinstance(h, tuple):
-            return (v.detach() for v in h)
+            return tuple(v.detach() for v in h)
 
     def forward(self, tokens):
         
@@ -99,8 +119,15 @@ class SimpleLSTM(nn.Module):
         else:
             embedded = self.emb_layer(tokens)
 
-        hidden = self.init_hidden(tokens.shape[0])
-        hidden = self.repackage_hidden()
+        if self.init_type == 'learned':
+            self.h0.requires_grad = True
+            self.c0.requires_grad = True
+            hidden = (self.h0.repeat(1, tokens.shape[0], 1), 
+                      self.c0.repeat(1, tokens.shape[0], 1))
+                      
+        else: # default behavior
+            hidden = self.init_hidden(tokens.shape[0])
+            hidden = self.repackage_hidden(hidden)
 
         text_lengths = torch.sum(tokens != self.pad_idx, dim=1).to("cpu")
 
@@ -160,9 +187,17 @@ class SimpleLSTM(nn.Module):
     def forward_shap(self, token_ids, mask, full_id_matrix=False):
         """Only enabled for one example at a time"""
         token_ids = token_ids if token_ids.is_cuda else token_ids.cuda()
-
-        hidden = self.init_hidden(1)
-        hidden = self.repackage_hidden()
+        
+        if self.init_type == 'learned':
+            self.h0.requires_grad = False
+            self.c0.requires_grad = False
+        
+            hidden = (self.h0.repeat(1, 1, 1), 
+                      self.c0.repeat(1, 1, 1))
+                      
+        else: # default behavior
+            hidden = self.init_hidden(1)
+            hidden = self.repackage_hidden(hidden)
 
         token_ids[sum(mask):, :] = 0
         emb = torch.matmul(token_ids, self.emb_layer.weight).unsqueeze(0)
