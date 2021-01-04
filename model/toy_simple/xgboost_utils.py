@@ -19,6 +19,16 @@ from sagemaker.tuner import IntegerParameter, CategoricalParameter, ContinuousPa
 from sagemaker.image_uris import retrieve
 
 
+def get_valid_tokens(tokens):
+    """Get all tokens except <pad> and <unk>"""
+    my_tokens = []
+    for key, val in tokens.items():
+        if val>=2:
+            my_tokens.append(key)
+    my_tokens
+    return my_tokens
+
+
 def get_one_hot(df, tokens_list, seq_len, target_colname):
     "Compute one hot encoding of the dataset."
     def _get_one_hot_row(row, tokens_list):
@@ -118,6 +128,7 @@ def get_tuner_status_and_result_until_completion(tuner, num_features, target, sl
     Returns:
         None
     """
+    smclient = boto3.Session().client('sagemaker')
     while True:
         tuning_job_result = smclient.describe_hyper_parameter_tuning_job(HyperParameterTuningJobName=tuner.latest_tuning_job.job_name)
         job_count = tuning_job_result['TrainingJobStatusCounters']['Completed']
@@ -152,6 +163,7 @@ def get_best_model_path(tuning_job_result):
     best_job = tuning_job_result.get('BestTrainingJob',None) 
     job_name = best_job['TrainingJobName'] 
     model_name=job_name + '-model' 
+    smclient = boto3.Session().client('sagemaker')
     info = smclient.describe_training_job(TrainingJobName=job_name) 
     model_path = info['ModelArtifacts']['S3ModelArtifacts'] 
     return model_path
