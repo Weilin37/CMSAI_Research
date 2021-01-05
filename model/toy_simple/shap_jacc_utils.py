@@ -306,3 +306,32 @@ def generate_heatmap(all_features_scores, models, k):
 def generate_k_heatmaps(all_features_scores, models, k_list):
     for k in k_list:
         generate_heatmap(all_features_scores, models, k)
+        
+        
+def get_model_intersection_similarity(all_features_scores, suffices=['_H', '_A']):
+    """Get similarity between the ground truth & model predicted helping events (Adverse and Helper)"""
+    def _get_helping_features(features, suffices):
+        """Get only helping features (Ending with _H & _A)"""
+        helping_features = []
+        for suf in suffices:
+            h = [event for event in features if event.endswith(suf)]
+            helping_features += h
+        return helping_features
+    all_features, all_scores = all_features_scores[0], all_features_scores[1]
+    num_examples = len(all_features)
+    similarities = []
+    for i in range(num_examples):
+        row_features = all_features[i]
+        row_scores = all_scores[i]
+        
+        gt_helpers = _get_helping_features(row_features, suffices)
+        if len(gt_helpers) == 0:
+            sim = 0.0
+        else:
+            dict_features_scores = dict(zip(row_features, row_scores))
+            top_features_scores = top_k(dict_features_scores, len(gt_helpers))
+            top_features = top_features_scores[0]
+            pred_helpers = _get_helping_features(top_features, suffices)
+            sim = float(len(pred_helpers))/len(gt_helpers)
+        similarities.append(sim)
+    return sum(similarities)/len(similarities)
