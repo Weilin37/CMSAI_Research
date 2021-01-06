@@ -263,9 +263,9 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0):
                 break
             counter += 1
 
-#     epoch_metric = roc_auc_score(
-#         order_labels, torch.sigmoid(torch.Tensor(prediction_scores)[:, 1])
-#     )
+    #     epoch_metric = roc_auc_score(
+    #         order_labels, torch.sigmoid(torch.Tensor(prediction_scores)[:, 1])
+    #     )
     epoch_metric = roc_auc_score(
         order_labels, torch.sigmoid(torch.Tensor(prediction_scores))
     )
@@ -323,7 +323,7 @@ def epoch_val_lstm(model, dataloader, criterion, return_preds=False, test=0):
             idxed_text, labels = idxed_text.cuda(), labels.cuda()
 
             predictions = model(idxed_text)
-            #loss = criterion(predictions, labels.squeeze(1))
+            # loss = criterion(predictions, labels.squeeze(1))
             loss = criterion(predictions, labels.type_as(predictions))
             epoch_loss += loss.item()
 
@@ -344,8 +344,13 @@ def epoch_val_lstm(model, dataloader, criterion, return_preds=False, test=0):
     epoch_metric = roc_auc_score(
         order_labels, torch.sigmoid(torch.Tensor(prediction_scores))
     )
-    
+
     if return_preds:
-        return epoch_loss / len(dataloader), epoch_metric, order_labels, torch.sigmoid(torch.Tensor(prediction_scores))
+        return (
+            epoch_loss / len(dataloader),
+            epoch_metric,
+            order_labels,
+            torch.sigmoid(torch.Tensor(prediction_scores)),
+        )
 
     return epoch_loss / len(dataloader), epoch_metric

@@ -117,18 +117,18 @@ class CustomPyTorchDeepIDExplainer(Explainer):
             for (x, m) in tqdm(zip(inputs[0], masks)):
                 x_gpu = x.cuda()
                 x_gpu = x_gpu.requires_grad_()
-                
-                #import IPython.core.debugger
 
-                #dbg = IPython.core.debugger.Pdb()
-                #dbg.set_trace()
-                
+                # import IPython.core.debugger
+
+                # dbg = IPython.core.debugger.Pdb()
+                # dbg.set_trace()
+
                 val = self.model.forward_shap(x_gpu, m, full_id_matrix=True)
                 ## why select the first one? LLC
                 selected = [val[0, idx]]
                 grads.append(torch.autograd.grad(selected, x_gpu)[0].cpu().numpy())
             return [np.stack(grads)]
-        
+
         else:
             X = [x.requires_grad_() for x in inputs]
             # outputs = self.model(*X)
@@ -147,7 +147,6 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                 grads = [torch.autograd.grad(selected, x)[0].cpu().numpy() for x in X]
                 return grads
 
-            
     def shap_values(self, X, masks, ranked_outputs=None, output_rank_order="max"):
 
         # X ~ self.model_input
@@ -159,8 +158,6 @@ class CustomPyTorchDeepIDExplainer(Explainer):
             X = [X]
         else:
             assert type(X) == list, "Expected a list of model inputs!"
-
-
 
         if ranked_outputs is not None and self.multi_output:
             with torch.no_grad():
@@ -195,9 +192,9 @@ class CustomPyTorchDeepIDExplainer(Explainer):
         # compute the attributions
         output_phis = []
         # print(model_output_ranks.shape)
-        
+
         for i in range(model_output_ranks.shape[1]):
-            
+
             # initialize phis
             phis = []
             if self.interim:
@@ -208,10 +205,10 @@ class CustomPyTorchDeepIDExplainer(Explainer):
             else:
                 for k in range(len(X)):
                     phis.append(np.zeros(X[k].shape))
-                    
+
             # calculate for each test observation
             for j in range(X[0].shape[0]):
-                
+
                 # tile the inputs to line up with the background data samples
                 tiled_X = [
                     X[l][j : j + 1].repeat(
@@ -220,20 +217,20 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                     )
                     for l in range(len(X))
                 ]
-                
+
                 # cat tiled_X and background together
                 joint_x = [
                     torch.cat((tiled_X[l], self.data[l]), dim=0) for l in range(len(X))
                 ]
                 joint_masks = [masks[j]] * self.data[0].shape[0] + self.masks
-                #joint_masks = [masks[j]] * (self.data[0].shape[0] + len(self.masks))
+                # joint_masks = [masks[j]] * (self.data[0].shape[0] + len(self.masks))
                 # mask is min(test_obs, background)
-                
-                #import IPython.core.debugger
 
-                #dbg = IPython.core.debugger.Pdb()
-                #dbg.set_trace()
-                #joint_masks = ([masks[j]] * (self.data[0].shape[0]) + [
+                # import IPython.core.debugger
+
+                # dbg = IPython.core.debugger.Pdb()
+                # dbg.set_trace()
+                # joint_masks = ([masks[j]] * (self.data[0].shape[0]) + [
                 #    masks[j] if sum(x) > sum(masks[j]) else x for x in self.masks])
 
                 # run attribution computation graph
@@ -261,8 +258,10 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                         phis[l][j] = (
                             torch.from_numpy(sample_phis[l][self.data[l].shape[0] :])
                             * (X[l][j : j + 1] - self.data[l]).cpu()
-                        ).mean(0) #average out [200, 30, 32] into [30, 32]
-                        
+                        ).mean(
+                            0
+                        )  # average out [200, 30, 32] into [30, 32]
+
             output_phis.append(phis[0] if not self.multi_input else phis)
 
         # cleanup; remove all gradient handles

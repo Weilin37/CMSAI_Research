@@ -5,8 +5,7 @@ from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
 
 class PositionalEncoding(nn.Module):
-    """Positional encoding to be used in transfromer model class
-    """
+    """Positional encoding to be used in transfromer model class"""
 
     def __init__(self, d_model, seq_length, dim, dropout=0.1, max_len=5000):
         """
@@ -42,8 +41,8 @@ class PositionalEncoding(nn.Module):
     def forward(self, x):
         x = x + self.pe[: x.size(0), :]
         return self.dropout(x)
-    
-    
+
+
 class TransformerCNNModel(nn.Module):
     def __init__(
         self,
@@ -63,22 +62,22 @@ class TransformerCNNModel(nn.Module):
         - Transformer encoder layers
         - Single 1D CNN layer
         - Final fully connected layer to determine probability of readmissions
-        
+
         Args:
         -----
             ntoken : number of tokens in embedding layer (vocabulary size)
             ninp : embedding dimension (number of inputs)
-            
+
             nhead : number of heads in transformers
             nhid : number of transformer linear dimensions
-            
+
             nlayers : number of layers in transfromer
-            
+
             num_classes : number of classes to predict (in this case, binary)
-            
+
             seq_length : length of sequence in batched data
             num_events : maximum number of events per day
-            
+
             dropout : strength of regularization
         """
         super(TransformerCNNModel, self).__init__()
@@ -87,7 +86,7 @@ class TransformerCNNModel(nn.Module):
         self.emsize = ninp
         self.nhead = nhead
         self.nlayers = nlayers
-        
+
         print(
             "parameters: embsize:{}, nhead:{}, nhid:{}, nlayers:{}, dropout:{}".format(
                 ninp, nhead, nhid, nlayers, dropout
@@ -146,9 +145,9 @@ class TransformerCNNModel(nn.Module):
         - convert events into embedding vectors & positional encoding
         - transformer encoder layers
         - CNN layer
-        - final 
+        - final
         """
-        #import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         # create mask to remove padded entries from calculations for interpretability
         if mask is not None:
             mask = mask.view(mask.size()[0], -1)
@@ -164,16 +163,16 @@ class TransformerCNNModel(nn.Module):
 
         src = self.seq_embedding(src).transpose(0, 1) * math.sqrt(self.ninp)
         src = self.pos_encoder(src)
-        #print('src', src.shape)
+        # print('src', src.shape)
         trans_output = (
             self.transformer_encoder(src, src_key_padding_mask=src_mask)
             .transpose(0, 1)
             .transpose(1, 2)
         )
-        #print('#out', trans_output.shape)
+        # print('#out', trans_output.shape)
         final_feature_map = self.Conv1d(trans_output).squeeze()
-        #print(final_feature_map.shape)
-    
+        # print(final_feature_map.shape)
+
         # if out_mask is not None:
         # extract normalized feature importances per prediction
         importance_out = self.softmax(final_feature_map + out_mask)
@@ -186,7 +185,6 @@ class TransformerCNNModel(nn.Module):
             output = output.view(1, 2)
 
         return output, importance_out
-    
 
     def forward(self, src, mask=None):
         """
@@ -194,9 +192,11 @@ class TransformerCNNModel(nn.Module):
         - convert events into embedding vectors & positional encoding
         - transformer encoder layers
         - CNN layer
-        - final 
+        - final
         """
-        import pdb; pdb.set_trace()
+        import pdb
+
+        pdb.set_trace()
         # create mask to remove padded entries from calculations for interpretability
         if mask is not None:
             mask = mask.view(mask.size()[0], -1)
@@ -212,16 +212,16 @@ class TransformerCNNModel(nn.Module):
 
         src = self.seq_embedding(src).transpose(0, 1) * math.sqrt(self.ninp)
         src = self.pos_encoder(src)
-        #print('src', src.shape)
+        # print('src', src.shape)
         trans_output = (
             self.transformer_encoder(src, src_key_padding_mask=src_mask)
             .transpose(0, 1)
             .transpose(1, 2)
         )
-        #print('#out', trans_output.shape)
+        # print('#out', trans_output.shape)
         final_feature_map = self.Conv1d(trans_output).squeeze()
-        #print(final_feature_map.shape)
-    
+        # print(final_feature_map.shape)
+
         # if out_mask is not None:
         # extract normalized feature importances per prediction
         importance_out = self.softmax(final_feature_map + out_mask)
@@ -234,7 +234,6 @@ class TransformerCNNModel(nn.Module):
             output = output.view(1, 2)
 
         return output, importance_out
-    
 
     def forward_shap(self, src, mask=None):
         """
@@ -242,7 +241,7 @@ class TransformerCNNModel(nn.Module):
         - convert events into embedding vectors & positional encoding
         - transformer encoder layers
         - CNN layer
-        - final 
+        - final
         """
         # create mask to remove padded entries from calculations for interpretability
         if mask is not None:
@@ -259,16 +258,16 @@ class TransformerCNNModel(nn.Module):
 
         src = self.seq_embedding(src).transpose(0, 1) * math.sqrt(self.ninp)
         src = self.pos_encoder(src)
-        #print('src', src.shape)
+        # print('src', src.shape)
         trans_output = (
             self.transformer_encoder(src, src_key_padding_mask=src_mask)
             .transpose(0, 1)
             .transpose(1, 2)
         )
-        #print('#out', trans_output.shape)
+        # print('#out', trans_output.shape)
         final_feature_map = self.Conv1d(trans_output).squeeze()
-        #print(final_feature_map.shape)
-    
+        # print(final_feature_map.shape)
+
         # if out_mask is not None:
         # extract normalized feature importances per prediction
         importance_out = self.softmax(final_feature_map + out_mask)

@@ -118,47 +118,46 @@ class CustomPyTorchDeepIDExplainer(Explainer):
         if self.gpu_memory_efficient:
             grads = []
             for (x, m) in tqdm(zip(inputs[0], masks)):
-                x_gpu = x.cpu() #x.cuda()
+                x_gpu = x.cpu()  # x.cuda()
                 x_gpu = x_gpu.requires_grad_()
-                
-                #import IPython.core.debugger
 
-                #dbg = IPython.core.debugger.Pdb()
-                #dbg.set_trace()
-                
+                # import IPython.core.debugger
+
+                # dbg = IPython.core.debugger.Pdb()
+                # dbg.set_trace()
+
                 val = self.model.forward_shap(x_gpu, m, full_id_matrix=True)
                 ## why select the first one? LLC
                 selected = [val[0, idx]]
                 grads.append(torch.autograd.grad(selected, x_gpu)[0].cpu().numpy())
             return [np.stack(grads)]
-        
+
         else:
-            print('gradient')
+            print("gradient")
             X = [x.requires_grad_() for x in inputs]
-            print('gradient 2')
+            print("gradient 2")
             # outputs = self.model(*X)
             outputs = self.get_output(X, masks)
             # print(outputs.shape)
             selected = [val for val in outputs[:, idx]]
-            print('gradient 2.2')
+            print("gradient 2.2")
             if self.interim:
-                print('gradient if')
+                print("gradient if")
                 interim_inputs = self.layer.target_input
                 grads = [
                     torch.autograd.grad(selected, input)[0].cpu().numpy()
                     for input in interim_inputs
                 ]
-                
+
                 del self.layer.target_input
                 return grads, [i.detach().cpu().numpy() for i in interim_inputs]
-                print('gradient 3')
+                print("gradient 3")
             else:
-                print('gradient else')
+                print("gradient else")
                 grads = [torch.autograd.grad(selected, x)[0].cpu().numpy() for x in X]
-                print('gradient 4')
+                print("gradient 4")
                 return grads
 
-            
     def deeplift_grad(self, module, grad_input, grad_output):
         """The backward hook which computes the deeplift
         gradient for an nn.Module
@@ -174,7 +173,7 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                 # surpress LSTM warning
                 print("Warning: unrecognized nn.Module: {}".format(module_type))
             return grad_input
-        
+
     def add_interim_values(self, module, input, output):
         """The forward hook used to save interim tensors, detached
         from the graph. Used to calculate the multipliers
@@ -212,12 +211,11 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                         setattr(module, "y", torch.nn.Parameter(output.detach()))
                 if module_type in failure_case_modules:
                     input[0].register_hook(deeplift_tensor_grad)
-                    
 
     def shap_1_value(self, args):
         model_output_ranks, X, masks, i, j = args
-        print('I am here 0')
-        #print('Processing {}...'.format(j))
+        print("I am here 0")
+        # print('Processing {}...'.format(j))
         # tile the inputs to line up with the background data samples
         phis_j = []
         tiled_X = [
@@ -227,20 +225,18 @@ class CustomPyTorchDeepIDExplainer(Explainer):
             )
             for l in range(len(X))
         ]
-        print('I am here 1')
+        print("I am here 1")
         # cat tiled_X and background together
-        joint_x = [
-            torch.cat((tiled_X[l], self.data[l]), dim=0) for l in range(len(X))
-        ]
+        joint_x = [torch.cat((tiled_X[l], self.data[l]), dim=0) for l in range(len(X))]
         joint_masks = [masks[j]] * self.data[0].shape[0] + self.masks
-        #joint_masks = [masks[j]] * (self.data[0].shape[0] + len(self.masks))
+        # joint_masks = [masks[j]] * (self.data[0].shape[0] + len(self.masks))
         # mask is min(test_obs, background)
-        print('I am here 2')
-        #import IPython.core.debugger
+        print("I am here 2")
+        # import IPython.core.debugger
 
-        #dbg = IPython.core.debugger.Pdb()
-        #dbg.set_trace()
-        #joint_masks = ([masks[j]] * (self.data[0].shape[0]) + [
+        # dbg = IPython.core.debugger.Pdb()
+        # dbg.set_trace()
+        # joint_masks = ([masks[j]] * (self.data[0].shape[0]) + [
         #    masks[j] if sum(x) > sum(masks[j]) else x for x in self.masks])
 
         # run attribution computation graph
@@ -248,7 +244,7 @@ class CustomPyTorchDeepIDExplainer(Explainer):
         # j = n_row_in_test
         feature_ind = model_output_ranks[j, i]
         sample_phis = self.gradient(feature_ind, joint_x, joint_masks)
-        print('I am here 3')
+        print("I am here 3")
         # assign the attributions to the right part of the output arrays
         if self.interim:
             sample_phis, output = sample_phis
@@ -258,28 +254,32 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                 x.append(x_temp)
                 data.append(data_temp)
             for l in range(len(self.interim_inputs_shape)):
-                phis_j.append((
-                    sample_phis[l][self.data[l].shape[0] :] * (x[l] - data[l])
-                ).mean(0))
-                #phis[l][j] = (
+                phis_j.append(
+                    (sample_phis[l][self.data[l].shape[0] :] * (x[l] - data[l])).mean(0)
+                )
+                # phis[l][j] = (
                 #    sample_phis[l][self.data[l].shape[0] :] * (x[l] - data[l])
-                #).mean(0)
+                # ).mean(0)
         else:
             # flow thru here
             # l=0
             for l in range(len(X)):
-                phis_j.append((
-                    torch.from_numpy(sample_phis[l][self.data[l].shape[0] :])
-                    * (X[l][j : j + 1] - self.data[l]).cpu()
-                ).mean(0)) #average out [200, 30, 32] into [30, 32]
-                #phis[l][j] = (
+                phis_j.append(
+                    (
+                        torch.from_numpy(sample_phis[l][self.data[l].shape[0] :])
+                        * (X[l][j : j + 1] - self.data[l]).cpu()
+                    ).mean(0)
+                )  # average out [200, 30, 32] into [30, 32]
+                # phis[l][j] = (
                 #    torch.from_numpy(sample_phis[l][self.data[l].shape[0] :])
                 #    * (X[l][j : j + 1] - self.data[l]).cpu()
-                #).mean(0) #average out [200, 30, 32] into [30, 32]
-        print('One Process Successfully Completed!')       
+                # ).mean(0) #average out [200, 30, 32] into [30, 32]
+        print("One Process Successfully Completed!")
         return [i, j, phis_j]
 
-    def shap_values_parallel(self, X, masks, ranked_outputs=None, output_rank_order="max"):
+    def shap_values_parallel(
+        self, X, masks, ranked_outputs=None, output_rank_order="max"
+    ):
 
         # X ~ self.model_input
         # X_data ~ self.data
@@ -317,17 +317,19 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                 * torch.arange(0, self.num_outputs).int()
             )
         # add the gradient handles
-        handles = self.add_handles(self.model, self.add_interim_values, self.deeplift_grad)
-        #handles = self.add_handles(self.model, add_interim_values, deeplift_grad)
+        handles = self.add_handles(
+            self.model, self.add_interim_values, self.deeplift_grad
+        )
+        # handles = self.add_handles(self.model, add_interim_values, deeplift_grad)
         if self.interim:
             self.add_target_handle(self.layer)
 
         # compute the attributions
         output_phis = []
         # print(model_output_ranks.shape)
-        
+
         for i in range(model_output_ranks.shape[1]):
-            
+
             # initialize phis
             phis = []
             if self.interim:
@@ -338,17 +340,19 @@ class CustomPyTorchDeepIDExplainer(Explainer):
             else:
                 for k in range(len(X)):
                     phis.append(np.zeros(X[k].shape))
-                    
+
             # calculate for each test observation (in parallel)
             args = [(model_output_ranks, X, masks, i, j) for j in range(X[0].shape[0])]
-            #pool = Pool(os.cpu_count())      # Create a multiprocessing Pool
+            # pool = Pool(os.cpu_count())      # Create a multiprocessing Pool
             pool = Pool(3)
             output_phis = pool.map(self.shap_1_value, args)
             pool.close()
-            pool.join()                
-            import pdb; pdb.set_trace()
-            #TODO: To be checked after here...
-                        
+            pool.join()
+            import pdb
+
+            pdb.set_trace()
+            # TODO: To be checked after here...
+
             output_phis.append(phis[0] if not self.multi_input else phis)
 
         # cleanup; remove all gradient handles
@@ -367,8 +371,7 @@ class CustomPyTorchDeepIDExplainer(Explainer):
 
         else:
             return output_phis
-    
-            
+
     def shap_values(self, X, masks, ranked_outputs=None, output_rank_order="max"):
 
         # X ~ self.model_input
@@ -380,8 +383,6 @@ class CustomPyTorchDeepIDExplainer(Explainer):
             X = [X]
         else:
             assert type(X) == list, "Expected a list of model inputs!"
-
-
 
         if ranked_outputs is not None and self.multi_output:
             with torch.no_grad():
@@ -416,9 +417,9 @@ class CustomPyTorchDeepIDExplainer(Explainer):
         # compute the attributions
         output_phis = []
         # print(model_output_ranks.shape)
-        
+
         for i in range(model_output_ranks.shape[1]):
-            
+
             # initialize phis
             phis = []
             if self.interim:
@@ -429,10 +430,10 @@ class CustomPyTorchDeepIDExplainer(Explainer):
             else:
                 for k in range(len(X)):
                     phis.append(np.zeros(X[k].shape))
-                    
+
             # calculate for each test observation
             for j in range(X[0].shape[0]):
-                
+
                 # tile the inputs to line up with the background data samples
                 tiled_X = [
                     X[l][j : j + 1].repeat(
@@ -441,20 +442,20 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                     )
                     for l in range(len(X))
                 ]
-                
+
                 # cat tiled_X and background together
                 joint_x = [
                     torch.cat((tiled_X[l], self.data[l]), dim=0) for l in range(len(X))
                 ]
                 joint_masks = [masks[j]] * self.data[0].shape[0] + self.masks
-                #joint_masks = [masks[j]] * (self.data[0].shape[0] + len(self.masks))
+                # joint_masks = [masks[j]] * (self.data[0].shape[0] + len(self.masks))
                 # mask is min(test_obs, background)
-                
-                #import IPython.core.debugger
 
-                #dbg = IPython.core.debugger.Pdb()
-                #dbg.set_trace()
-                #joint_masks = ([masks[j]] * (self.data[0].shape[0]) + [
+                # import IPython.core.debugger
+
+                # dbg = IPython.core.debugger.Pdb()
+                # dbg.set_trace()
+                # joint_masks = ([masks[j]] * (self.data[0].shape[0]) + [
                 #    masks[j] if sum(x) > sum(masks[j]) else x for x in self.masks])
 
                 # run attribution computation graph
@@ -482,8 +483,10 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                         phis[l][j] = (
                             torch.from_numpy(sample_phis[l][self.data[l].shape[0] :])
                             * (X[l][j : j + 1] - self.data[l]).cpu()
-                        ).mean(0) #average out [200, 30, 32] into [30, 32]
-                        
+                        ).mean(
+                            0
+                        )  # average out [200, 30, 32] into [30, 32]
+
             output_phis.append(phis[0] if not self.multi_input else phis)
 
         # cleanup; remove all gradient handles
