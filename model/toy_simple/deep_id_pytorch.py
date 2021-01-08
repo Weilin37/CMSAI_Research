@@ -67,7 +67,8 @@ class CustomPyTorchDeepIDExplainer(Explainer):
 
     def get_output(self, data, masks):
         outputs = []
-        for d, m in tqdm(zip(data[0], masks)):
+        # for d, m in tqdm(zip(data[0], masks)):
+        for d, m in zip(data[0], masks):
             outputs.append(self.model.forward_shap(d, m, full_id_matrix=True))
         outputs = torch.cat(outputs, dim=0)
         return outputs
@@ -114,7 +115,8 @@ class CustomPyTorchDeepIDExplainer(Explainer):
         self.model.zero_grad()
         if self.gpu_memory_efficient:
             grads = []
-            for (x, m) in tqdm(zip(inputs[0], masks)):
+            # for (x, m) in tqdm(zip(inputs[0], masks)):
+            for (x, m) in zip(inputs[0], masks):
                 x_gpu = x.cuda()
                 x_gpu = x_gpu.requires_grad_()
                 val = self.model.forward_shap(x_gpu, m, full_id_matrix=True)
