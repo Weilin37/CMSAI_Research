@@ -53,18 +53,19 @@ def save_csv(df, fp):
 # - get_sequences
 def get_a_sequence(adverse, helper, unhelper, seq_len, label, tokens):
     """creates sequence + label (at the end of list). returns list of list"""
-    n_noise = random.choices(range(adverse + helper + unhelper + 1, seq_len), k=1)[
-        0
-    ] - (adverse + helper + unhelper)
+    n_noise = (
+        random.choices(range(adverse + helper + unhelper + 1, seq_len), k=1)[0] - 
+        (adverse + helper + unhelper))
 
     sel_adverse, sel_helper, sel_unhelper = [], [], []
 
     if adverse:
-        sel_adverse = get_idx_tok(seq_len, tokens, "adverse_tokens", adverse)
+        sel_adverse = get_idx_tok(n_noise, tokens, "adverse_tokens", adverse)
+        
     if helper:
-        sel_helper = get_idx_tok(seq_len, tokens, "adverse_helper_tokens", helper)
+        sel_helper = get_idx_tok(n_noise, tokens, "adverse_helper_tokens", helper)
     if unhelper:
-        sel_unhelper = get_idx_tok(seq_len, tokens, "adverse_unhelper_tokens", unhelper)
+        sel_unhelper = get_idx_tok(n_noise, tokens, "adverse_unhelper_tokens", unhelper)
 
     sel_noise = get_tokens(seq_len, tokens, "noise_tokens", n_noise)
 
@@ -74,6 +75,7 @@ def get_a_sequence(adverse, helper, unhelper, seq_len, label, tokens):
     sel_noise = ["<pad>"] * (seq_len - len(sel_noise)) + sel_noise
 
     sim_lab = get_label(0.9, target=label)
+    
     return sel_noise + [sim_lab]
 
 
@@ -215,6 +217,7 @@ def get_simple_dataset(seq_len, uid_len, uid_colname, count_dict, tokens):
     indexes = [idx for idx in range(dataset.shape[0])]
     random.shuffle(indexes)
     dataset = dataset.iloc[indexes, :]
+    #dataset = dataset.sample(frac=1).reset_index(drop=True)
 
     print(f"dataset: {dataset.shape}")
     print(f"ratio:\n{dataset.label.value_counts(normalize=True)}\n")
