@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import os
 import torch
 import shap
+import random
 
 from collections import defaultdict, OrderedDict, Counter
 
@@ -68,21 +69,41 @@ def get_lstm_background(dataloader, n_background=500, negative_only=True):
     return background
 
 
-def get_lstm_data(dataloader, n_examples):
-    """Get data from all batches."""
+def get_lstm_data(dataloader, n_examples, positive_only=False, is_random=False):
+    """
+    Get n_examples of data from all batches.
+    Args:
+        dataloader(Object): LSTM Dataset Loader
+        n_examples(int): Number of examples to be selected. If None, it selects all
+        positive_only(bool): Whether it selects only positive examples
+        is_random(bool): If examples randomly selected or only the first n_examples
+    """
     sel_set = []
     for batch in dataloader:
-        sel_set.extend(
-            [
-                (uid, lab, idxes)
-                for (uid, lab, idxes) in zip(batch[0], batch[1], batch[2])
-            ]
-        )
+        if positive_only:
+            sel_set.extend(
+                [
+                    (uid, lab, idxes)
+                    for (uid, lab, idxes) in zip(batch[0], batch[1], batch[2])
+                    if lab == 1
+                ]
+            )
+        else:
+            sel_set.extend(
+                [
+                    (uid, lab, idxes)
+                    for (uid, lab, idxes) in zip(batch[0], batch[1], batch[2])
+                ]
+            )
 
         if n_examples is not None:
-            if len(sel_set) > n_examples:
-                sel_set = sel_set[:n_examples]
-                break
+            if not is_random:
+                if len(sel_set) > n_examples:
+                    sel_set = sel_set[:n_examples]
+                    break
+
+    if (n_examples is not None) and (is_random):
+        sel_set = random.sample(sel_set, n_examples)
 
     data_ids = [x[0] for x in sel_set]
     data_labels = [x[1] for x in sel_set]
@@ -97,17 +118,18 @@ def get_lstm_features_and_shap_scores(
     tr_dataloader,
     te_dataloader,
     seq_len,
-    features_path,
-    scores_path,
-    patients_path,
+    shap_path,
+    save_output=True,
     n_test=None,
     n_background=None,
-    negative_only=False,
+    background_negative_only=False,
+    test_positive_only=False,
+    is_test_random=False,
 ):
     """Get all features and shape importance scores for each example in te_dataloader."""
     # Get background
     background = get_lstm_background(
-        tr_dataloader, n_background=n_background, negative_only=negative_only
+        tr_dataloader, n_background=n_background, negative_only=background_negative_only
     )
     # background = next(iter(tr_dataloader))
     background_ids, background_labels, background_idxes = background
@@ -122,9 +144,15 @@ def get_lstm_features_and_shap_scores(
     start = 0
 
     # test = next(iter(te_dataloader))
-    test = get_lstm_data(te_dataloader, n_test)
+    test = get_lstm_data(
+        te_dataloader,
+        n_test,
+        positive_only=test_positive_only,
+        is_random=is_test_random,
+    )
     test_ids, test_labels, test_idxes = test
     test_data, test_masks = model.get_all_ids_masks(test_idxes, seq_len)
+
     lstm_shap_values = explainer.shap_values(test_data, test_masks)
 
     features = []
@@ -148,17 +176,14 @@ def get_lstm_features_and_shap_scores(
         scores.append(vals[:])
         patients.append(patient_id)
 
-    if not os.path.isdir(os.path.split(features_path)[0]):
-        os.makedirs(os.path.split(features_path)[0])
+    if not os.path.isdir(os.path.split(shap_path)[0]):
+        os.makedirs(os.path.split(shap_path)[0])
 
-    if not os.path.isdir(os.path.split(scores_path)[0]):
-        os.makedirs(os.path.split(scores_path)[0])
+    shap_values = (features, scores, patients)
+    if save_output:
+        save_pickle(shap_values, shap_path)
 
-    save_pickle(features, features_path)
-    save_pickle(scores, scores_path)
-    save_pickle(patients, patients_path)
-
-    return features, scores, patients
+    return shap_values
 
 
 def get_xgboost_features_and_shap_scores(
@@ -190,6 +215,9 @@ def get_xgboost_features_and_shap_scores(
 
     features = X_train.columns.tolist()
     explainer = shap.TreeExplainer(model, X_train)
+    import pdb
+
+    pdb.set_trace()
     xgb_shap_values = explainer.shap_values(X_test)
     features = [features[:]] * len(X_test)
     scores = xgb_shap_values.tolist()
@@ -225,12 +253,12 @@ def get_per_patient_shap(shap_values, data, vocab, idx=0):
     return df, patient_id
 
 
-def plot_shap_values(df, patient_id, sort=False):
+def plot_shap_values(df, patient_id, sort=False, figsize=(15, 7)):
     if sort:
         df = df.reindex(
             df.shap_vals.abs().sort_values(ascending=False).index
         ).reset_index()
-    plt.figure(figsize=(20, 10))
+    plt.figure(figsize=figsize)
     ax = sns.barplot(x=df.index, y=df.shap_vals, orient="v")
     z = ax.set_xticklabels(df.events, rotation=90)
     plt.title("Patient ID: {}".format(patient_id))
@@ -253,8 +281,7 @@ def jacc_simi(list1, list2):
 
 
 def top_k(dict_row_scores, k):
-    d = convert_to_absolute(dict_row_scores)
-    od = OrderedDict(sorted(d.items(), key=lambda x: x[1]))
+    od = OrderedDict(sorted(dict_row_scores.items(), key=lambda x: x[1]))
     top_k_features = list(od.keys())[-k:]
     top_k_scores = list(od.values())[-k:]
     return top_k_features, top_k_scores
@@ -271,8 +298,12 @@ def total_jacc(features_scores_a, features_scores_b, k, overlap=False):
         row_features_b = all_features_b[idx]
         row_scores_b = all_scores_b[idx]
 
-        dict_features_scores_a = dict(zip(row_features_a, row_scores_a))
-        dict_features_scores_b = dict(zip(row_features_b, row_scores_b))
+        dict_features_scores_a = create_dict_features_scores(
+            row_features_a, row_scores_a
+        )
+        dict_features_scores_b = create_dict_features_scores(
+            row_features_b, row_scores_b
+        )
 
         features_a, scores_a = top_k(dict_features_scores_a, k)
         features_b, scores_b = top_k(dict_features_scores_b, k)
@@ -345,10 +376,96 @@ def get_model_intersection_similarity(all_features_scores, suffices=["_H", "_A"]
         if len(gt_helpers) == 0:
             sim = 0.0
         else:
-            dict_features_scores = dict(zip(row_features, row_scores))
+            dict_features_scores = create_dict_features_scores(row_features, row_scores)
             top_features_scores = top_k(dict_features_scores, len(gt_helpers))
             top_features = top_features_scores[0]
             pred_helpers = _get_helping_features(top_features, suffices)
             sim = float(len(pred_helpers)) / len(gt_helpers)
         similarities.append(sim)
     return sum(similarities) / len(similarities), similarities
+
+
+def get_model_paths(input_path_pattern):
+    """Get list of model paths in sorted form."""
+    model_dir = os.path.dirname(input_path_pattern)
+    fnames = os.listdir(model_dir)
+    fnames = [fname for fname in fnames if fname.endswith(".pkl")]
+    fnames = sorted(fnames)
+    model_paths = [os.path.join(model_dir, fname) for fname in fnames]
+    return model_paths
+
+
+def plot_histogram(
+    data,
+    title,
+    xlabel,
+    ylabel,
+    axes,
+    axes_idx=0,
+    xlim=0.0,
+    ylim=1.0,
+    bins=50,
+    kde=False,
+):
+    """Plots a histogram based on a given data."""
+    if axes is None:
+        plt.figure(figsize=(10, 5))
+        sns.distplot(data, bins=bins, kde=kde, axlabel=xlabel)
+        plt.title(title)
+        plt.ylabel(ylabel)
+        plt.show()
+    else:
+        sns.distplot(data, bins=bins, kde=kde, ax=axes[axes_idx], axlabel=xlabel)
+        axes[axes_idx].set_title(title)
+        axes[axes_idx].set_ylabel(ylabel)
+        axes[axes_idx].set_xlim(xlim)
+        axes[axes_idx].set_ylim(ylim)
+    return axes
+
+
+def get_global_feature_importance(all_features, all_scores):
+    """Get global feature importances from the per-patient features and scores."""
+    num_examples = len(all_features)
+    my_all_features = defaultdict(list)
+    for i in range(num_examples):
+        features1 = all_features[i]
+        scores1 = all_scores[i]
+        feat_sc1 = create_dict_features_scores(features1, scores1)
+        for k, v in feat_sc1.items():
+            my_all_features[k].append(v)
+    # print(my_all_features)
+    for k, v in my_all_features.items():
+        my_all_features[k] = float(np.mean(my_all_features[k]))
+    my_all_features = OrderedDict(
+        sorted(my_all_features.items(), key=lambda x: x[1], reverse=False)
+    )
+    return my_all_features
+
+
+def plot_global_feature_importance(feature_importances):
+    """Plots the global feature importances in horizontal barplot"""
+    df = pd.DataFrame(feature_importances, index=range(1)).T
+    df.plot.barh(figsize=(10, 20), legend=False)
+    plt.show()
+
+
+def get_epoch_number_from_path(model_path):
+    """Gets the epoch number from the given model path."""
+    epoch = model_path.rsplit(".", 1)[0]
+    epoch = epoch.rsplit("_", 1)[-1]
+    epoch = int(epoch)
+    return epoch
+
+
+def create_dict_features_scores(features, scores):
+    """
+    Create a dictionary of features and scores.
+    If there are duplicate keys, it will average their their scores.
+    It also converts each score to its corresponding absolute value
+    """
+    features_scores = defaultdict(list)
+    for i, feature in enumerate(features):
+        features_scores[feature].append(abs(scores[i]))
+    for key, vals in features_scores.items():
+        features_scores[key] = float(np.mean(vals))
+    return features_scores
