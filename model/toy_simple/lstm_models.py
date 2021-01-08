@@ -17,7 +17,8 @@ class SimpleLSTM(nn.Module):
         use_gpu=True,
         pad_idx=0,
         dropout=None,
-        init_type="zero",
+        init_type='zero',
+        linear_bias=True
     ):
         super(SimpleLSTM, self).__init__()
 
@@ -68,9 +69,11 @@ class SimpleLSTM(nn.Module):
             )
 
         self.pred_layer = (
-            nn.Linear(hidden_dim * 2, 1) if bidi else nn.Linear(hidden_dim, 1)
+            nn.Linear(hidden_dim * 2, 1, bias=linear_bias) 
+            if bidi else nn.Linear(hidden_dim, 1, bias=linear_bias)
         )
-
+        self.linear_bias = linear_bias
+        
         self.dpt = nn.Dropout(dropout) if dropout is not None else dropout
         self.init_weights()
 
@@ -79,7 +82,8 @@ class SimpleLSTM(nn.Module):
         self.emb_layer.weight.data.uniform_(-initrange, initrange)
 
         self.pred_layer.weight.data.uniform_(-initrange, initrange)
-        self.pred_layer.bias.data.zero_()
+        if self.linear_bias:
+            self.pred_layer.bias.data.zero_()
 
     def init_hidden(self, batch_size):
         count = self.nlayers * 2 if self.bidi else self.nlayers

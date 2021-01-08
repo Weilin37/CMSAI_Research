@@ -18,7 +18,8 @@ class AttLSTM(SimpleLSTM):
         use_gpu=True,
         pad_idx=0,
         dropout=None,
-        init_type="zero",
+        init_type='zero',
+        linear_bias=True
     ):
         super(AttLSTM, self).__init__(
             emb_dim=emb_dim, hidden_dim=hidden_dim, vocab=vocab, device=device
@@ -36,11 +37,13 @@ class AttLSTM(SimpleLSTM):
         self.hidden_dim = hidden_dim
         self.bidi = bidi
         self.nlayers = nlayers
-
+        self.linear_bias = linear_bias
+        
         self.attn_layer = (
-            nn.Linear(hidden_dim * 2, 1) if bidi else nn.Linear(hidden_dim, 1)
+            nn.Linear(hidden_dim *2, 1, bias=linear_bias) 
+            if bidi else nn.Linear(hidden_dim, 1, bias=linear_bias)
         )
-
+        
         if dropout is None:
             self.lstm = nn.LSTM(
                 input_size=emb_dim,
@@ -59,16 +62,19 @@ class AttLSTM(SimpleLSTM):
                 dropout=dropout,
             )
 
+      
         self.pred_layer = (
-            nn.Linear(hidden_dim * 4, 1) if bidi else nn.Linear(hidden_dim * 2, 1)
+            nn.Linear(hidden_dim * 4, 1, bias=linear_bias) 
+            if bidi else nn.Linear(hidden_dim * 2, 1, bias=linear_bias)
         )
 
         self.dpt = nn.Dropout(dropout)
-
+        
         self.context_layer = (
-            nn.Linear(hidden_dim * 2, 1) if bidi else nn.Linear(hidden_dim, 1)
+            nn.Linear(hidden_dim * 2, 1, bias=linear_bias) 
+            if bidi else nn.Linear(hidden_dim, 1, bias=linear_bias)
         )
-
+        
         self.init_weights()
 
     def forward(self, tokens, ret_attn=False):
