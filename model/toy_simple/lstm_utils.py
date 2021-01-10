@@ -202,7 +202,7 @@ def epoch_time(start_time, end_time):
     return elapsed_mins, elapsed_secs
 
 
-def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0):
+def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False):
     """
     Train model for an epoch, called by ModelProcess function
     detach_hidden is used to detach hidden state between batches,
@@ -245,6 +245,9 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0):
 
         loss = criterion(predictions, labels.type_as(predictions))
         loss.backward()
+        
+        if clip:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
         optimizer.step()
 
         # prevent internal pytorch timeout due to too many file opens by multiprocessing
@@ -263,9 +266,9 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0):
                 break
             counter += 1
 
-    #     epoch_metric = roc_auc_score(
-    #         order_labels, torch.sigmoid(torch.Tensor(prediction_scores)[:, 1])
-    #     )
+#     epoch_metric = roc_auc_score(
+#         order_labels, torch.sigmoid(torch.Tensor(prediction_scores)[:, 1])
+#     )
     epoch_metric = roc_auc_score(
         order_labels, torch.sigmoid(torch.Tensor(prediction_scores))
     )
@@ -323,7 +326,7 @@ def epoch_val_lstm(model, dataloader, criterion, return_preds=False, test=0):
             idxed_text, labels = idxed_text.cuda(), labels.cuda()
 
             predictions = model(idxed_text)
-            # loss = criterion(predictions, labels.squeeze(1))
+            #loss = criterion(predictions, labels.squeeze(1))
             loss = criterion(predictions, labels.type_as(predictions))
             epoch_loss += loss.item()
 
@@ -344,13 +347,8 @@ def epoch_val_lstm(model, dataloader, criterion, return_preds=False, test=0):
     epoch_metric = roc_auc_score(
         order_labels, torch.sigmoid(torch.Tensor(prediction_scores))
     )
-
+    
     if return_preds:
-        return (
-            epoch_loss / len(dataloader),
-            epoch_metric,
-            order_labels,
-            torch.sigmoid(torch.Tensor(prediction_scores)),
-        )
+        return epoch_loss / len(dataloader), epoch_metric, order_labels, torch.sigmoid(torch.Tensor(prediction_scores))
 
     return epoch_loss / len(dataloader), epoch_metric
