@@ -65,7 +65,6 @@ import time
 import torch
 import pandas as pd
 import numpy as np
-import time
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -241,10 +240,6 @@ def run_experiment(train_dataloader,
             init_type=init_type,
         )        
     model = model.cuda()
-
-    print(
-        "Computing the # of models params and check the accepted ratio of #params/#examples (accepted<=0.1)..."
-    )
 
     # loss_function = nn.CrossEntropyLoss()
     loss_function = nn.BCEWithLogitsLoss()
@@ -424,11 +419,11 @@ if __name__=="__main__":
     
     seq_lens = [30, 300, 900]
     model_names = ['lstm-att', 'lstm']
-    embedding_dims = [8, 16]
+    embedding_dims = [8]#, 16]
     hidden_dims = [8, 16]
     nlayerss = [1, 2]
     dropouts = [0.2, 0.3]
-    init_types = ["zero", "learned"]
+    init_types = ["zero"] #"learned"]
     N_BACKGROUNDS = [300, 500]
 
     exp_output_path = './output/experiments/experiments_summary.csv'
@@ -457,6 +452,7 @@ if __name__=="__main__":
                         for dropout in dropouts:
                             for N_BACKGROUND in N_BACKGROUNDS:
                                 for init_type in init_types:
+                                    start = time.time()
                                     exp_result = run_experiment(
                                                    train_dataloader=train_dataloader,
                                                    val_dataloader=valid_dataloader,                                        
@@ -471,5 +467,8 @@ if __name__=="__main__":
                                                    dropout=dropout, 
                                                    init_type=init_type, 
                                                    N_BACKGROUND=N_BACKGROUND)
+                                    end = time.time()
+                                    total = (end-start)/60.0
+                                    print(f'Total time per experiment: {total:.2f}mins')
                                     save_experiment(exp_result, exp_output_path, exp_header)
         print('Experiment Result Successfully Written for seq_len={seq_len}!')
