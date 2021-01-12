@@ -113,7 +113,7 @@ def get_lstm_data(dataloader, n_examples, positive_only=False, is_random=False):
     return data
 
 
-def get_all_lstm_shap(dataloader, seq_len, model, explainer, positive_only=False):
+def get_all_lstm_shap(dataloader, seq_len, model, explainer, positive_only=False, n_test=None):
     """
     Get all shap values.
     Args:
@@ -125,6 +125,8 @@ def get_all_lstm_shap(dataloader, seq_len, model, explainer, positive_only=False
     features = []
     scores = []
     patients = []
+    i = 0
+    stop = False
     for batch in dataloader:
         for (uid, lab, idxes) in zip(batch[0], batch[1], batch[2]):
             if positive_only and (lab != 1):
@@ -147,6 +149,13 @@ def get_all_lstm_shap(dataloader, seq_len, model, explainer, positive_only=False
             features.append(events)
             scores.append(vals[:])
             patients.append(patient_id)
+            
+            i += 1
+            if (n_test is not None) and (i >= n_test):
+                stop = True
+                break
+        if stop:
+            break
 
     return (features, scores, patients)
 
@@ -178,8 +187,8 @@ def get_lstm_features_and_shap_scores(
     model.train()  # in case that shap complains that autograd cannot be called
 
     shap_values = None
-    if n_test is None:
-        shap_values = get_all_lstm_shap(te_dataloader, seq_len, model, explainer, test_positive_only)
+    if (n_test is None) or (n_test > 32):
+        shap_values = get_all_lstm_shap(te_dataloader, seq_len, model, explainer, test_positive_only, n_test)
     else:
         # test = next(iter(te_dataloader))
         test = get_lstm_data(
