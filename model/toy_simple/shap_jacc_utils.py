@@ -291,7 +291,7 @@ def total_jacc(features_scores_a, features_scores_b, k, overlap=False, absolute=
     all_features_a, all_scores_a = features_scores_a[0], features_scores_a[1]
     all_features_b, all_scores_b = features_scores_b[0], features_scores_b[1]
 
-    total_jacc, overlap_tokens = [], []
+    tot_jacc, overlap_tokens = [], []
     for idx, row_features_a in enumerate(all_features_a):
         row_scores_a = all_scores_a[idx]
 
@@ -309,12 +309,12 @@ def total_jacc(features_scores_a, features_scores_b, k, overlap=False, absolute=
         features_b, scores_b = top_k(dict_features_scores_b, k)
 
         overlap_words, jacc_score = jacc_simi(features_a, features_b)
-        total_jacc.append(jacc_score)
+        tot_jacc.append(jacc_score)
         overlap_tokens.append(overlap_words)
     if overlap:
-        return total_jacc, overlap_tokens
+        return tot_jacc, overlap_tokens
     else:
-        return total_jacc
+        return tot_jacc
 
 
 def show_heatmap(models, data, k, fig_size, vmin, vmax):
@@ -329,7 +329,7 @@ def show_heatmap(models, data, k, fig_size, vmin, vmax):
     return fig
 
 
-def generate_heatmap_data(all_features_scores, k):
+def generate_heatmap_data(all_features_scores, k, absolute=True):
     data = []
     num_models = len(all_features_scores)
     for i in range(num_models):
@@ -337,21 +337,21 @@ def generate_heatmap_data(all_features_scores, k):
         features_scores_a = all_features_scores[i]
         for j in range(num_models):
             features_scores_b = all_features_scores[j]
-            total = total_jacc(features_scores_a, features_scores_b, k)
+            total = total_jacc(features_scores_a, features_scores_b, k, absolute=absolute)
             avg_jacc = np.mean(total)
             tmp.append(avg_jacc)
         data.append(tmp)
     return data
 
 
-def generate_heatmap(all_features_scores, models, k):
-    data = generate_heatmap_data(all_features_scores, k)
+def generate_heatmap(all_features_scores, models, k, absolute=True):
+    data = generate_heatmap_data(all_features_scores, k, absolute=absolute)
     fig = show_heatmap(models, data, k, (7, 5), 0, 1.0)
 
 
-def generate_k_heatmaps(all_features_scores, models, k_list):
+def generate_k_heatmaps(all_features_scores, models, k_list, absolute=True):
     for k in k_list:
-        generate_heatmap(all_features_scores, models, k)
+        generate_heatmap(all_features_scores, models, k, absolute=absolute)
 
 
 def get_model_intersection_similarity(all_features_scores, suffices=["_H", "_A"], absolute=True, df_one_hot=None):
