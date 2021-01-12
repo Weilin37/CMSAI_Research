@@ -2,9 +2,9 @@
 # coding: utf-8
 
 # # LSTM+Attention Model Training and SHAP computation using the Synthetic-events Dataset
-# 
+#
 # **Author: Tesfagabir Meharizghi<br>Last Updated: 01/07/2021**
-# 
+#
 # This notebook does the following actions:
 # - Model training using the given parameters
 # - Model selection using Intersection Similarity Score between ground truth helping features and predicted ones
@@ -13,21 +13,21 @@
 # - Visualizes the train/val/test probability scores from each trained model
 # - Visualizes the Intersection Similarity Scores for val/test splits
 # - Finally, after tweaking the parameters, it gets the best model for the given model architecture and dataset
-# 
+#
 # Outputs:
 # - The following artifacts are saved:
 #     * Model artifacts
 #     * SHAP values and their corresponding scores for the specified number of val/test examples
-# 
+#
 # Model Architecture Used:
 # - LSTM+Attention
-# 
+#
 # Dataset:
 # - Synthetic-events (Toy Dataset)
-# 
+#
 # Requirements:
 # - Make sure that you have already generated the synthetic toy dataset (train/val/test splits) using [Create_toy_dataset.ipynb](../../data/toy_dataset/Create_toy_dataset.ipynb).
-# 
+#
 # Next Steps:
 # - Once you train different models, save the best one you found
 # - Do also the same for other models architectures (SimpleLSTM, XGB, etc.) using the separate notebooks
@@ -48,7 +48,7 @@
 # In[2]:
 
 
-#get_ipython().run_line_magic('load_ext', 'lab_black')
+# get_ipython().run_line_magic('load_ext', 'lab_black')
 
 # Some issue with reload when using with Jupyter Lab:
 # https://stackoverflow.com/questions/43751455/supertype-obj-obj-must-be-an-instance-or-subtype-of-type/52927102#52927102
@@ -92,22 +92,25 @@ from sagemaker.image_uris import retrieve
 
 import deep_id_pytorch
 
+import lstm_models as lstm
 import lstm_utils as l_utils
 import att_lstm_models as lstm_att
 import shap_jacc_utils as sj_utils
 
 
-def load_data(train_data_path, 
-              valid_data_path, 
-              test_data_path,
-              seq_len,
-              min_freq, 
-              batch_size, 
-              target_colname,
-              uid_colname,
-              target_value,
-              nrows,
-              rev):
+def load_data(
+    train_data_path,
+    valid_data_path,
+    test_data_path,
+    seq_len,
+    min_freq,
+    batch_size,
+    target_colname,
+    uid_colname,
+    target_value,
+    nrows,
+    rev,
+):
     """Load data."""
     train_dataset, vocab = l_utils.build_lstm_dataset(
         train_data_path,
@@ -155,24 +158,26 @@ def load_data(train_data_path,
     test_dataloader = DataLoader(
         test_dataset, batch_size=batch_size, shuffle=False, num_workers=2
     )
-    
+
     return (train_dataloader, valid_dataloader, test_dataloader, vocab)
 
 
-def run_experiment(train_dataloader, 
-                   val_dataloader, 
-                   test_dataloader, 
-                   vocab,
-                   batch_size,
-                   seq_len, 
-                   model_name, 
-                   embedding_dim, 
-                   hidden_dim, 
-                   nlayers, 
-                   dropout, 
-                   N_BACKGROUND, 
-                   init_type):
-    dataset = 'Synthetic-events'
+def run_experiment(
+    train_dataloader,
+    val_dataloader,
+    test_dataloader,
+    vocab,
+    batch_size,
+    seq_len,
+    model_name,
+    embedding_dim,
+    hidden_dim,
+    nlayers,
+    dropout,
+    N_BACKGROUND,
+    init_type,
+):
+    dataset = "Synthetic-events"
 
     n_epochs = 10
     stop_num = 2
@@ -183,20 +188,25 @@ def run_experiment(train_dataloader,
 
     # SHAP related constants
     BACKGROUND_NEGATIVE_ONLY = True  # If negative examples are used as background
-    N_VALID_EXAMPLES = 32  # Number of validation examples to be used during model training
-    N_TEST_EXAMPLES = 64  # Number of test examples
+    N_VALID_EXAMPLES = (
+        32  # Number of validation examples to be used during model training
+    )
+    N_TEST_EXAMPLES = 32 #64 TODO: Update  # Number of test examples
     TEST_POSITIVE_ONLY = True  # If only positive examples are selected
     IS_TEST_RANDOM = (
         False  # If random test/val examples are selected for shap value computation
     )
-    SORT_SHAP_VALUES = False  # Whether to sort per-patient shap values for visualization
+    SORT_SHAP_VALUES = (
+        False  # Whether to sort per-patient shap values for visualization
+    )
 
-    model_save_path = "./output/{}/{}/models/model_{}.pkl".format(seq_len, model_name, "{}")
+    model_save_path = "./output/{}/{}/models/model_{}.pkl".format(
+        seq_len, model_name, "{}"
+    )
     shap_save_path = "./output/{}/{}/shap/{}_shap_{}.pkl".format(
         seq_len, model_name, "{}", "{}"
     )  # SHAP values path for a given dataset split (train/val/test) (data format (features, scores, patient_ids))
-    
-    
+
     # Model Output Directory
     model_save_dir = os.path.dirname(model_save_path)
     shap_save_dir = os.path.dirname(shap_save_path)
@@ -214,12 +224,11 @@ def run_experiment(train_dataloader,
     print(f"Cuda available: {torch.cuda.is_available()}")
     model_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
     # ### Model Training
 
     # In[8]:
 
-    if model_name == 'lstm-att':
+    if model_name == "lstm-att":
         model = lstm_att.AttLSTM(
             embedding_dim,
             hidden_dim,
@@ -238,7 +247,7 @@ def run_experiment(train_dataloader,
             nlayers=nlayers,
             dropout=dropout,
             init_type=init_type,
-        )        
+        )
     model = model.cuda()
 
     # loss_function = nn.CrossEntropyLoss()
@@ -282,7 +291,9 @@ def run_experiment(train_dataloader,
                 is_test_random=IS_TEST_RANDOM,
             )
 
-            valid_sim, _ = sj_utils.get_model_intersection_similarity((features, scores))
+            valid_sim, _ = sj_utils.get_model_intersection_similarity(
+                (features, scores)
+            )
         end_time = time.time()
 
         epoch_mins, epoch_secs = l_utils.epoch_time(start_time, end_time)
@@ -322,14 +333,15 @@ def run_experiment(train_dataloader,
         print(
             f"Train Loss: {train_loss:.3f} | Train AUC: {train_auc:.2f} \t Val. Loss: {valid_loss:.3f} |  Val. AUC: {valid_auc:.4f} {sim_message}"
         )
-
+        
+    #TODO: add torch.cuda.empty_cache() here and reload model.
 
     # Get paths of each saved model
     models_paths = sj_utils.get_model_paths(model_save_path)
 
     # ## Model Validation and Visualization
 
-    #Take only the last model (as it is the best)
+    # Take only the last model (as it is the best)
     models_paths = models_paths[-1:]
     total_models = len(models_paths)
     for i, model_path in enumerate(models_paths):
@@ -359,7 +371,9 @@ def run_experiment(train_dataloader,
         ) = sj_utils.load_pickle(val_shap_path)
 
         print("Computing Intersection Similarity...")
-        val_avg_sim, sim = sj_utils.get_model_intersection_similarity((features, scores))
+        val_avg_sim, sim = sj_utils.get_model_intersection_similarity(
+            (features, scores)
+        )
 
         # For the best model, get the final performance (test set) (intersection similarity)
         exp_result = ""
@@ -381,14 +395,18 @@ def run_experiment(train_dataloader,
                 test_positive_only=TEST_POSITIVE_ONLY,
                 is_test_random=IS_TEST_RANDOM,
             )
-            test_avg_sim, _ = sj_utils.get_model_intersection_similarity((features, scores))
-            
+            test_avg_sim, _ = sj_utils.get_model_intersection_similarity(
+                (features, scores)
+            )
+
             exp_result = f"{model_name},{dataset},{seq_len},{val_avg_sim:.4f},{test_avg_sim:.4f},{val_auc:.4f},{test_auc:.4f},{n_epochs},{stop_num},{batch_size},{embedding_dim},{hidden_dim},{nlayers},{bidirectional},{dropout},{EARLY_STOPPING},{N_BACKGROUND},{BACKGROUND_NEGATIVE_ONLY},{N_VALID_EXAMPLES},{N_TEST_EXAMPLES},{TEST_POSITIVE_ONLY},{IS_TEST_RANDOM}"
+
+        torch.cuda.empty_cache()
 
         print("All tasks SUCCESSFULLY completed!")
         print("=" * 100)
+        
         return exp_result
-
 
 
 def save_experiment(exp_result, output_path, header):
@@ -396,55 +414,63 @@ def save_experiment(exp_result, output_path, header):
     output_dir = os.path.dirname(output_path)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-        
+
     data = ""
     if not os.path.exists(output_path):
         data = f"{header}\n{exp_result}"
     else:
         data = f"\n{exp_result}"
-        
-    with open(output_path, 'a+') as fp:
-        fp.write(data)
-    
 
-if __name__=="__main__":
+    with open(output_path, "a+") as fp:
+        fp.write(data)
+
+
+if __name__ == "__main__":
     nrows = 1e9
     min_freq = 1
     batch_size = 64  # For model training
     rev = False
-    
+
     target_colname = "label"
     uid_colname = "patient_id"
     target_value = "1"
-    
-    seq_lens = [30, 300, 900]
-    model_names = ['lstm-att', 'lstm']
-    embedding_dims = [8]#, 16]
-    hidden_dims = [8, 16]
-    nlayerss = [1, 2]
-    dropouts = [0.2, 0.3]
-    init_types = ["zero"] #"learned"]
-    N_BACKGROUNDS = [300, 500]
 
-    exp_output_path = './output/experiments/experiments_summary.csv'
+    seq_lens = [900]#, 900]  # [30] #TODO
+    model_names = ["lstm"]#["lstm-att", 
+    embedding_dims = [8]#, 16]
+    hidden_dims = [8]#, 16]
+    nlayerss = [1]#, 2]
+    dropouts = [0.3]#, 0.3]
+    init_types = ["zero"]  # "learned"]
+    N_BACKGROUNDS = [300]#, 500]
+
+    exp_output_path = "./output/experiments/experiments_summary.csv"
     exp_header = "model,dataset,seq_len,val_Intersection_Sim,test_Intersection_Sim,val_AUC,test_AUC,n_epochs,stop_num,batch_size,embedding_dim,hidden_dim,nlayers,bidirectional,dropout,early_stopping_criteria,n_background,background_negative_only,n_valid_examples,n_test_examples,test_positive_only,is_test_random"
 
     for seq_len in seq_lens:
-        #Load data
+        # Load data
         train_data_path = "../../data/toy_dataset/data/{}/train.csv".format(seq_len)
         valid_data_path = "../../data/toy_dataset/data/{}/val.csv".format(seq_len)
         test_data_path = "../../data/toy_dataset/data/{}/test.csv".format(seq_len)
-        (train_dataloader, valid_dataloader, test_dataloader, vocab) = load_data(train_data_path, 
-                                                                          valid_data_path, 
-                                                                          test_data_path, 
-                                                                          seq_len=seq_len,
-                                                                          min_freq=min_freq, 
-                                                                          batch_size=batch_size,
-                                                                          target_colname=target_colname,
-                                                                          uid_colname=uid_colname,
-                                                                          target_value=target_value,
-                                                                          nrows=nrows, 
-                                                                          rev=rev)
+        (
+              train_dataloader,
+              valid_dataloader,
+              test_dataloader,
+              vocab,
+        ) = load_data(
+              train_data_path,
+              valid_data_path,
+              test_data_path,
+              seq_len=seq_len,
+              min_freq=min_freq,
+              batch_size=batch_size,
+              target_colname=target_colname,
+              uid_colname=uid_colname,
+              target_value=target_value,
+              nrows=nrows,
+              rev=rev,
+        )
+
         for model_name in model_names:
             for embedding_dim in embedding_dims:
                 for hidden_dim in hidden_dims:
@@ -454,21 +480,24 @@ if __name__=="__main__":
                                 for init_type in init_types:
                                     start = time.time()
                                     exp_result = run_experiment(
-                                                   train_dataloader=train_dataloader,
-                                                   val_dataloader=valid_dataloader,                                        
-                                                   test_dataloader=test_dataloader,
-                                                   vocab=vocab,
-                                                   batch_size=batch_size,
-                                                   seq_len=seq_len, 
-                                                   model_name=model_name,
-                                                   embedding_dim=embedding_dim, 
-                                                   hidden_dim=hidden_dim, 
-                                                   nlayers=nlayers, 
-                                                   dropout=dropout, 
-                                                   init_type=init_type, 
-                                                   N_BACKGROUND=N_BACKGROUND)
+                                        train_dataloader=train_dataloader,
+                                        val_dataloader=valid_dataloader,
+                                        test_dataloader=test_dataloader,
+                                        vocab=vocab,
+                                        batch_size=batch_size,
+                                        seq_len=seq_len,
+                                        model_name=model_name,
+                                        embedding_dim=embedding_dim,
+                                        hidden_dim=hidden_dim,
+                                        nlayers=nlayers,
+                                        dropout=dropout,
+                                        init_type=init_type,
+                                        N_BACKGROUND=N_BACKGROUND,
+                                    )
                                     end = time.time()
-                                    total = (end-start)/60.0
-                                    print(f'Total time per experiment: {total:.2f}mins')
-                                    save_experiment(exp_result, exp_output_path, exp_header)
-        print('Experiment Result Successfully Written for seq_len={seq_len}!')
+                                    total = (end - start) / 60.0
+                                    print(f"Total time per experiment: {total:.2f}mins")
+                                    save_experiment(
+                                        exp_result, exp_output_path, exp_header
+                                    )
+        print(f"Experiment Result Successfully Written for seq_len={seq_len}!")
