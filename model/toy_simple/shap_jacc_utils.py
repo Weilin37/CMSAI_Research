@@ -113,6 +113,43 @@ def get_lstm_data(dataloader, n_examples, positive_only=False, is_random=False):
     return data
 
 
+def get_all_lstm_shap(dataloader, seq_len, model, explainer, positive_only=False):
+    """
+    Get all shap values.
+    Args:
+        dataloader(Object): LSTM Dataset Loader
+        n_examples(int): Number of examples to be selected. If None, it selects all
+        positive_only(bool): Whether it selects only positive examples
+        is_random(bool): If examples randomly selected or only the first n_examples
+    """
+    features = []
+    scores = []
+    patients = []
+    for batch in dataloader:
+        for (uid, lab, idxes) in zip(batch[0], batch[1], batch[2]):
+            if positive_only and (lab != 1):
+                continue
+            (test_ids, test_labels, test_idxes) = ([uid], [lab], [idxes])
+            test_data, test_masks = model.get_all_ids_masks(test_idxes, seq_len)
+            lstm_shap_values = explainer.shap_values(test_data, test_masks)
+            
+            df_shap, patient_id = get_per_patient_shap(
+                lstm_shap_values, (test_ids, test_labels, test_idxes), model.vocab, 0
+            )
+            events = df_shap["events"].values.tolist()
+            vals = df_shap["shap_vals"].values.tolist()
+            pad = "<pad>"
+            if pad in events:
+                pad_indx = events.index(pad)
+                events = events[:pad_indx]
+
+            vals = vals[:pad_indx]
+            features.append(events)
+            scores.append(vals[:])
+            patients.append(patient_id)
+
+    return (features, scores, patients)
+
 def get_lstm_features_and_shap_scores(
     model,
     tr_dataloader,
@@ -139,48 +176,49 @@ def get_lstm_features_and_shap_scores(
     )
 
     model.train()  # in case that shap complains that autograd cannot be called
-    lstm_values = []
-    features = []
-    start = 0
 
-    # test = next(iter(te_dataloader))
-    test = get_lstm_data(
-        te_dataloader,
-        n_test,
-        positive_only=test_positive_only,
-        is_random=is_test_random,
-    )
-    test_ids, test_labels, test_idxes = test
-    test_data, test_masks = model.get_all_ids_masks(test_idxes, seq_len)
-
-    lstm_shap_values = explainer.shap_values(test_data, test_masks)
-
-    features = []
-    scores = []
-    patients = []
-    total = len(test[0])
-    for idx in range(total):
-        df_shap, patient_id = get_per_patient_shap(
-            lstm_shap_values, test, model.vocab, idx
+    shap_values = None
+    if n_test is None:
+        shap_values = get_all_lstm_shap(te_dataloader, seq_len, model, explainer, test_positive_only)
+    else:
+        # test = next(iter(te_dataloader))
+        test = get_lstm_data(
+            te_dataloader,
+            n_test,
+            positive_only=test_positive_only,
+            is_random=is_test_random,
         )
-        events = df_shap["events"].values.tolist()
-        vals = df_shap["shap_vals"].values.tolist()
+        test_ids, test_labels, test_idxes = test
+        test_data, test_masks = model.get_all_ids_masks(test_idxes, seq_len)
 
-        pad = "<pad>"
-        if pad in events:
-            pad_indx = events.index(pad)
-            events = events[:pad_indx]
+        lstm_shap_values = explainer.shap_values(test_data, test_masks)
 
-        vals = vals[:pad_indx]
-        features.append(events)
-        scores.append(vals[:])
-        patients.append(patient_id)
+        features = []
+        scores = []
+        patients = []
+        total = len(test[0])
+        for idx in range(total):
+            df_shap, patient_id = get_per_patient_shap(
+                lstm_shap_values, test, model.vocab, idx
+            )
+            events = df_shap["events"].values.tolist()
+            vals = df_shap["shap_vals"].values.tolist()
 
-    if not os.path.isdir(os.path.split(shap_path)[0]):
-        os.makedirs(os.path.split(shap_path)[0])
+            pad = "<pad>"
+            if pad in events:
+                pad_indx = events.index(pad)
+                events = events[:pad_indx]
 
-    shap_values = (features, scores, patients)
+            vals = vals[:pad_indx]
+            features.append(events)
+            scores.append(vals[:])
+            patients.append(patient_id)
+
+        shap_values = (features, scores, patients)
+    
     if save_output:
+        if not os.path.isdir(os.path.split(shap_path)[0]):
+            os.makedirs(os.path.split(shap_path)[0])
         save_pickle(shap_values, shap_path)
 
     return shap_values
