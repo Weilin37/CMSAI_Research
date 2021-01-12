@@ -231,7 +231,7 @@ def copy_model_from_s3(s3_model_path, local_model_dir):
     return output_path
 
 
-def load_model(gz_model_path):
+def load_model(gz_model_path, remove=True):
     """
     Loads xgboost trained model from disk
     Args:
@@ -249,7 +249,26 @@ def load_model(gz_model_path):
     # Load Model
     model = pickle.load(open(model_path, "rb"))
 
-    # Remove the local copy of the model files
-    shutil.rmtree(model_dir)
+    # Remove the local copy of the model files if needed
+    if remove:
+        shutil.rmtree(model_dir)
+    else:
+        os.remove(model_path) #Remove only the extracted file
 
     return model
+
+def get_valid_tokens(df, seq_len):
+    """Get list of tokens."""
+    feature_cols = [str(i) for i in range(seq_len-1, -1, -1)]
+    tokens = list(set(df[feature_cols].values.flatten().tolist()))
+    pad = '<pad>'
+    if pad in tokens:
+        tokens.remove('<pad>')
+    return tokens
+
+
+def get_best_model_info(df):
+    """Get best model path based on its Intersection Sim index."""
+    best_idx = df[["val_Intersection_Sim"]].idxmax().tolist()[0]
+    best_df_row = df.iloc[best_idx]
+    return best_df_row
