@@ -19,7 +19,7 @@ from utils import *
 
 
 def get_xgboost_background(
-    data, n_background=500, negative_only=True, target_col="label"
+    data, n_background=500, negative_only=True, target_col="label", positive_only=False
 ):
     """
     Get background examples for computing xgb shap values.
@@ -28,6 +28,8 @@ def get_xgboost_background(
     background = data.copy()
     if negative_only:
         background = background[background[target_col] == 0]
+    elif positive_only:
+        background = background[background[target_col] == 1]
 
     if n_background is None:
         return background
@@ -171,6 +173,7 @@ def get_lstm_features_and_shap_scores(
     background_negative_only=False,
     test_positive_only=False,
     is_test_random=False,
+    output_explainer=False
 ):
     """Get all features and shape importance scores for each example in te_dataloader."""
     # Get background
@@ -230,6 +233,9 @@ def get_lstm_features_and_shap_scores(
             os.makedirs(os.path.split(shap_path)[0])
         save_pickle(shap_values, shap_path)
 
+    if output_explainer:
+        return shap_values, explainer.expected_value
+
     return shap_values
 
 
@@ -242,8 +248,10 @@ def get_xgboost_features_and_shap_scores(
     n_test=None,
     n_background=None,
     background_negative_only=False,
+    background_positive_only=False,
     test_positive_only=False,
     is_test_random=False,
+    output_explainer=False
 ):
     """Get all features and shape importance scores for each example in te_dataloader."""
     target_col = df_tr.columns.tolist()[-1]
@@ -252,6 +260,7 @@ def get_xgboost_features_and_shap_scores(
         n_background=n_background,
         negative_only=background_negative_only,
         target_col=target_col,
+        positive_only=background_positive_only,
     )
     if n_test is not None:
         df_te = df_te.iloc[:n_test, :]
@@ -279,6 +288,9 @@ def get_xgboost_features_and_shap_scores(
     if save_output:
         save_pickle(shap_values, shap_path)
 
+    if output_explainer:
+        return shap_values, explainer.expected_value
+    
     return shap_values
 
 
@@ -300,11 +312,13 @@ def get_per_patient_shap(shap_values, data, vocab, idx=0):
     return df, patient_id
 
 
-def plot_shap_values(df, patient_id, sort=False, figsize=(15, 7)):
+def plot_shap_values(df, patient_id, sort=False, figsize=(15, 7), num_features=None):
     if sort:
         df = df.reindex(
             df.shap_vals.abs().sort_values(ascending=False).index
         ).reset_index()
+    if num_features is not None:
+        df = df.iloc[:num_features]
     plt.figure(figsize=figsize)
     ax = sns.barplot(x=df.index, y=df.shap_vals, orient="v")
     z = ax.set_xticklabels(df.events, rotation=90)
