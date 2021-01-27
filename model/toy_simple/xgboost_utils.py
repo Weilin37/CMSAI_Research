@@ -1,3 +1,5 @@
+from collections import Counter
+
 import xgboost
 import sagemaker
 import boto3
@@ -39,13 +41,19 @@ def get_valid_tokens(tokens):
     return my_tokens
 
 
-def get_one_hot(df, tokens_list, seq_len, target_colname):
-    "Compute one hot encoding of the dataset."
+def get_one_hot(df, tokens_list, seq_len, target_colname, use_freq=False):
+    """Compute one hot encoding of the dataset.
+    use_freq: Whether to use frequency of features or one-hot encoding
+    """
 
     def _get_one_hot_row(row, tokens_list):
         """Get one-hot encoding for a single row."""
-        features = set(row.tolist())
-        one_hot = [int(ft in features) for ft in tokens_list]
+        if use_freq:
+            counter = Counter(row.tolist())
+            one_hot = [counter[token] for token in tokens_list]
+        else:
+            features = set(row.tolist())
+            one_hot = [int(ft in features) for ft in tokens_list]
         return one_hot
 
     feature_colnames = [str(x) for x in range(seq_len - 1, -1, -1)]
@@ -61,11 +69,11 @@ def get_one_hot(df, tokens_list, seq_len, target_colname):
 
 
 def prepare_data(
-    input_path, out_one_hot_path, out_data_path, seq_len, target_colname, tokens, s3_dir
+    input_path, out_one_hot_path, out_data_path, seq_len, target_colname, tokens, s3_dir, use_freq=False
 ):
     """Prepare data for xgboost training."""
     df = pd.read_csv(input_path)
-    df0 = get_one_hot(df, tokens, seq_len, target_colname)
+    df0 = get_one_hot(df, tokens, seq_len, target_colname, use_freq=use_freq)
 
     if not os.path.isdir(os.path.split(out_one_hot_path)[0]):
         os.makedirs(os.path.split(out_one_hot_path)[0])
