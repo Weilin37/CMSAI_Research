@@ -197,21 +197,7 @@ def train_hpo(
         sagemaker_session=sagemaker_session,
     )
 
-#     xgb_model.set_hyperparameters(
-#         eval_metric=eval_metric,
-#         objective=objective,
-#         scale_pos_weight=scale_pos_weight,  # For class imbalance
-#         num_round=200,
-#         rate_drop=0.3,
-#         max_depth=5,
-#         subsample=0.8,
-#         gamma=2,
-#         eta=0.2,
-#         early_stopping_rounds=2,
-#     )
-
-    #Well-tuned parameters
-    
+    #Well-tuned parameters    
     xgb_model.set_hyperparameters(
         eval_metric=eval_metric,
         objective=objective,
@@ -223,11 +209,6 @@ def train_hpo(
         colsample_bytree=0.35,
         early_stopping_rounds=5,
     )
-    # model = XGBClassifier(
-    #     n_jobs=25, random_state=10,
-    #     max_depth=7, n_estimators=100, eval_metric='auc',
-    #     learning_rate=.3, reg_alpha=0.2, reg_lambda=0.35, colsample_bytree=0.35,
-    #     use_label_encoder=False)
     
     tuner = HyperparameterTuner(
         xgb_model,

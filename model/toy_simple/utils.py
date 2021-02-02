@@ -14,9 +14,10 @@ def get_abs_path(save_dir, file_name):
     return path
 
 
-def save_pickle(content, path):
+def save_pickle(content, path, verbose=True):
     pickle.dump(content, open(path, "wb"))
-    print("saved {} pickle..".format(path))
+    if verbose:
+        print("saved {} pickle..".format(path))
 
 
 def load_pickle(path, encoding=True):
