@@ -111,13 +111,13 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                 except AttributeError:
                     pass
 
-    def gradient(self, idx, inputs, masks):
+    def gradient(self, idx, inputs, masks, model_device):
         self.model.zero_grad()
         if self.gpu_memory_efficient:
             grads = []
             # for (x, m) in tqdm(zip(inputs[0], masks)):
             for (x, m) in zip(inputs[0], masks):
-                x_gpu = x.cuda()
+                x_gpu = x.to(model_device) #x.cuda()
                 x_gpu = x_gpu.requires_grad_()
                 val = self.model.forward_shap(x_gpu, m, full_id_matrix=True)
                 selected = [val[0, idx]]
@@ -141,7 +141,7 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                 grads = [torch.autograd.grad(selected, x)[0].cpu().numpy() for x in X]
                 return grads
 
-    def shap_values(self, X, masks, ranked_outputs=None, output_rank_order="max"):
+    def shap_values(self, X, masks, ranked_outputs=None, output_rank_order="max", model_device='cuda:0'):
 
         # X ~ self.model_input
         # X_data ~ self.data
@@ -214,7 +214,7 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                 joint_masks = [masks[j]] * self.data[0].shape[0] + self.masks
                 # run attribution computation graph
                 feature_ind = model_output_ranks[j, i]
-                sample_phis = self.gradient(feature_ind, joint_x, joint_masks)
+                sample_phis = self.gradient(feature_ind, joint_x, joint_masks, model_device)
                 # assign the attributions to the right part of the output arrays
                 if self.interim:
                     sample_phis, output = sample_phis
