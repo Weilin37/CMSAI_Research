@@ -202,7 +202,7 @@ def epoch_time(start_time, end_time):
     return elapsed_mins, elapsed_secs
 
 
-def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False):
+def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False, device=None):
     """
     Train model for an epoch, called by ModelProcess function
     detach_hidden is used to detach hidden state between batches,
@@ -213,10 +213,9 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False
         model (nn.Module): lstm general attention model
         dataloader : iterator for dataset, yields (ids, sequence, seq length, labels)
         criterion : loss function
-        batch_size : int default 0
-                     used when detach_hidden is enabled
-                     to create the correct hidden sizes during initialization
-
+        optimizer : pytorch optimizer to be used during step
+        clip (bool) : clip gradients if enabled
+        
     Returns:
     ----------
         tuple containing:
@@ -233,12 +232,19 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False
     prediction_scores = []
     if test:  # test function on small number of batches
         counter = 0
+        
     for idx, (ids, labels, idxed_text) in enumerate(dataloader):
 
         optimizer.zero_grad()
 
         labels = labels.type(torch.long)
-        idxed_text, labels = idxed_text.cuda(), labels.cuda()
+        
+        if device is not None:
+            idxed_text, labels = idxed_text.to(device), labels.to(device)
+            model = model.to(device)
+        else:
+            idxed_text, labels = idxed_text.cuda(), labels.cuda()
+            model = model.cuda()
 
         predictions = model(idxed_text)
         # predictions = model(text, text_lengths).squeeze(1)
@@ -248,6 +254,7 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False
         
         if clip:
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+            #torch.nn.utils.clip_grad_norm_(model.parameters(), -0.5)
         optimizer.step()
 
         # prevent internal pytorch timeout due to too many file opens by multiprocessing
@@ -266,9 +273,6 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False
                 break
             counter += 1
 
-#     epoch_metric = roc_auc_score(
-#         order_labels, torch.sigmoid(torch.Tensor(prediction_scores)[:, 1])
-#     )
     epoch_metric = roc_auc_score(
         order_labels, torch.sigmoid(torch.Tensor(prediction_scores))
     )
@@ -276,7 +280,7 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False
     return epoch_loss / len(dataloader), epoch_metric
 
 
-def epoch_val_lstm(model, dataloader, criterion, return_preds=False, test=0):
+def epoch_val_lstm(model, dataloader, criterion, return_preds=False, test=0, device=None):
     """
     Evaluate model on a dataset
 
@@ -323,7 +327,11 @@ def epoch_val_lstm(model, dataloader, criterion, return_preds=False, test=0):
         for idx, (ids, labels, idxed_text) in enumerate(dataloader):
 
             labels = labels.type(torch.long)
-            idxed_text, labels = idxed_text.cuda(), labels.cuda()
+            
+            if device is not None:
+                idxed_text, labels = idxed_text.to(device), labels.to(device)
+            else:
+                idxed_text, labels = idxed_text.cuda(), labels.cuda()
 
             predictions = model(idxed_text)
             #loss = criterion(predictions, labels.squeeze(1))
