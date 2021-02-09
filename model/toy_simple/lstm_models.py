@@ -97,7 +97,7 @@ class SimpleLSTM(nn.Module):
         )
 
         if self.use_gpu:
-            return (weights[0].cuda(), weights[1].cuda())
+            return (weights[0].to(self.device), weights[1].to(self.device))
 
         return weights
 
