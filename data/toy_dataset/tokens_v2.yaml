@@ -1,0 +1,52 @@
+adverse_tokens:
+- Acute_Myocardial_Infarction_A
+- hypertension_A
+- arrhythmia_A
+- congestive_heart_failure_A
+- heart_valve_failure_A
+- pulmonary_embolism_A
+- ventricular_aneurysm_A
+- ventricular_hypertrophy_A
+- cardiomyopathy_A
+- Chronic_Obstructive_Pulmonary_Disease_A
+
+adverse_helper_tokens:
+- sleep_apnea_H
+- pneumonia_H
+- coronary_artery_disease_H
+- edema_H
+- troponin_H
+- Brain_Natriuretic_Peptide_H
+- alchoholism_H
+- metabolic_disorder_H
+- elevated_creatinine_H
+- electrolyte_imbalance_H
+
+adverse_unhelper_tokens:
+- percutaneous_coronary_intervention_U (PCI_U)
+- electrical_cardioversion_U
+- catheter_ablation_U
+- pacemaker_U
+- pacemaker_U
+- sleep_apnea_treatment_U
+- ACE_inhibitors_U
+- ARB_U
+- diuretics_U
+- beta_blockers_U
+
+noise_tokens:
+- eye_exam_N
+- annual_physical_N
+- hay_fever_N
+- headache_N
+- foot_pain_N
+- backache_N
+- cold_sore_N
+- myopia_N
+- cut_finger_N
+- ankle_sprain_N
+- ACL_tear_N
+- quad_injury_N
+- dental_exam_N
+- ingrown_nail_N
+- peanut_allergy_N
