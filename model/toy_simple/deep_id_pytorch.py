@@ -33,6 +33,7 @@ class CustomPyTorchDeepIDExplainer(Explainer):
         self.interim = False
         self.interim_inputs_shape = None
         self.expected_value = None  # to keep the DeepExplainer base happy
+        self.model_device = model.device
         if type(model) == tuple:
             self.interim = True
             model, layer = model
@@ -52,6 +53,7 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                     self.interim_inputs_shape = [interim_inputs.shape]
             self.target_handle.remove()
             del self.layer.target_input
+        
         self.model = model.eval()
 
         self.gpu_memory_efficient = gpu_memory_efficient
@@ -145,7 +147,7 @@ class CustomPyTorchDeepIDExplainer(Explainer):
 
         # X ~ self.model_input
         # X_data ~ self.data
-
+        model_device = self.model_device
         # check if we have multiple inputs
         if not self.multi_input:
             assert type(X) != list, "Expected a single tensor model input!"

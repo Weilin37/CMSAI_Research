@@ -1,4 +1,4 @@
-"""Module to select few examples of positive label and negative label used for SHAP scores visualization."""
+"""Module to select few event-based test examples of positive label and negative label used for SHAP scores visualization."""
 
 import os
 import pandas as pd
@@ -11,7 +11,7 @@ if __name__ == "__main__":
     NUM_POS_PATIENTS = 2
     NUM_NEG_PATIENTS = 2
 
-    DATA_DIR = f"/home/ec2-user/SageMaker/CMSAI_Research/data/toy_dataset/data/{SEQ_LEN}/"
+    DATA_DIR = f"/home/ec2-user/SageMaker/CMSAI_Research/data/toy_dataset/data/event_final_v2/{SEQ_LEN}/"
     
     INPUT_PATH = os.path.join(DATA_DIR, "test.csv")
     OUTPUT_PATH = os.path.join(DATA_DIR, "visualized_test_patients.txt")

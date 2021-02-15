@@ -35,3 +35,8 @@ noise_tokens:
 - dental_exam_N
 - ingrown_nail_N
 - peanut_allergy_N
+
+adverse_sequence_tokens:
+- AMI_A
+- CHF_A
+- ARR_A
