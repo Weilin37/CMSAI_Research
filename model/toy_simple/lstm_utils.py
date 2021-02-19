@@ -151,6 +151,10 @@ def build_lstm_dataset(
 
             tokens = [tokens[idx] for idx in x_idxes]
             tokens = [t.strip().replace("\n", "") for t in tokens if valid_token(t)]
+            
+            if not tokens:
+                line = f.readline()
+                continue
 
             if rev:
                 tokens = tokens[::-1]

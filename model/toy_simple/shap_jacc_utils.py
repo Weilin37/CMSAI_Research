@@ -147,7 +147,7 @@ def get_all_lstm_shap(dataloader, seq_len, model, explainer, positive_only=False
                 pad_indx = events.index(pad)
                 events = events[:pad_indx]
 
-            vals = vals[:pad_indx]
+                vals = vals[:pad_indx]
             features.append(events)
             scores.append(vals[:])
             patients.append(patient_id)
@@ -221,7 +221,7 @@ def get_lstm_features_and_shap_scores(
                 pad_indx = events.index(pad)
                 events = events[:pad_indx]
 
-            vals = vals[:pad_indx]
+                vals = vals[:pad_indx]
             features.append(events)
             scores.append(vals[:])
             patients.append(patient_id)
