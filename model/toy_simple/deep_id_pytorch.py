@@ -114,16 +114,26 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                     pass
 
     def gradient(self, idx, inputs, masks, model_device):
+        #import pdb; pdb.set_trace()
         self.model.zero_grad()
         if self.gpu_memory_efficient:
             grads = []
             # for (x, m) in tqdm(zip(inputs[0], masks)):
+            #import pdb; pdb.set_trace()
             for (x, m) in zip(inputs[0], masks):
                 x_gpu = x.to(model_device) #x.cuda()
                 x_gpu = x_gpu.requires_grad_()
                 val = self.model.forward_shap(x_gpu, m, full_id_matrix=True)
                 selected = [val[0, idx]]
-                grads.append(torch.autograd.grad(selected, x_gpu)[0].cpu().numpy())
+                
+                grad = torch.autograd.grad(selected, x_gpu)[0].detach()
+                grads.append(grad.cpu().numpy())
+                val = val.detach()
+                selected = selected[0].detach()
+                #grads.append(torch.autograd.grad(selected, x_gpu)[0].cpu().numpy())
+                #del val, selected, x_gpu #To reserve GPU memory space
+            import gc; gc.collect()
+            torch.cuda.empty_cache()
             return [np.stack(grads)]
         else:
             X = [x.requires_grad_() for x in inputs]
@@ -216,7 +226,29 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                 joint_masks = [masks[j]] * self.data[0].shape[0] + self.masks
                 # run attribution computation graph
                 feature_ind = model_output_ranks[j, i]
+                
+#                 import gc
+#                 out = ''
+#                 for obj in gc.get_objects():
+#                     try:
+#                         if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
+#                             out += f'\n{type(obj)}, {obj.size()}'
+#                     except:
+#                         pass
+#                 with open('out1.txt', 'w') as fp:
+#                     fp.write(out)
+                    
                 sample_phis = self.gradient(feature_ind, joint_x, joint_masks, model_device)
+                out = ''
+                for obj in gc.get_objects():
+                    try:
+                        if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
+                            out += f'\n{type(obj)}, {obj.size()}'
+                    except:
+                        pass
+                with open('out2.txt', 'w') as fp:
+                    fp.write(out)
+
                 # assign the attributions to the right part of the output arrays
                 if self.interim:
                     sample_phis, output = sample_phis

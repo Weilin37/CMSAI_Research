@@ -183,6 +183,7 @@ def get_lstm_features_and_shap_scores(
     # background = next(iter(tr_dataloader))
     background_ids, background_labels, background_idxes = background
     bg_data, bg_masks = model.get_all_ids_masks(background_idxes, seq_len)
+    #import pdb; pdb.set_trace()
     explainer = deep_id_pytorch.CustomPyTorchDeepIDExplainer(
         model, bg_data, bg_masks, gpu_memory_efficient=True
     )
@@ -226,8 +227,19 @@ def get_lstm_features_and_shap_scores(
             scores.append(vals[:])
             patients.append(patient_id)
 
+
+        #For explainer
         shap_values = (features, scores, patients)
-    
+
+#     import gc
+#     for obj in gc.get_objects():
+#         try:
+#             if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
+#                 print(type(obj), obj.size())
+#         except:
+#             pass
+#     import pdb; pdb.set_trace()
+
     if save_output:
         if not os.path.isdir(os.path.split(shap_path)[0]):
             os.makedirs(os.path.split(shap_path)[0])
@@ -512,11 +524,16 @@ def get_global_feature_importance(all_features, all_scores, absolute=True):
     return my_all_features
 
 
-def plot_global_feature_importance(feature_importances):
+def plot_global_feature_importance(feature_importances, max_features=None):
     """Plots the global feature importances in horizontal barplot"""
     df = pd.DataFrame(feature_importances, index=range(1)).T
+    if max_features is not None:
+        df = df.sort_values(0, ascending=False)
+        df = df.iloc[:max_features]
+        df = df.sort_values(0, ascending=True)
     df.plot.barh(figsize=(10, 20), legend=False)
     plt.show()
+    return df
 
 
 def get_epoch_number_from_path(model_path):
