@@ -23,11 +23,11 @@ adverse_helper_tokens:
 - electrolyte_imbalance_H
 
 adverse_unhelper_tokens:
-- percutaneous_coronary_intervention_U (PCI_U)
+- Percutaneous_Coronary_Intervention_U
 - electrical_cardioversion_U
 - catheter_ablation_U
 - pacemaker_U
-- pacemaker_U
+- cardiac_rehab_U
 - sleep_apnea_treatment_U
 - ACE_inhibitors_U
 - ARB_U
