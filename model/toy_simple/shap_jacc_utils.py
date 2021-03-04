@@ -17,6 +17,7 @@ from collections import defaultdict, OrderedDict, Counter
 import deep_id_pytorch
 from utils import *
 
+import gc
 
 def get_xgboost_background(
     data, n_background=500, negative_only=True, target_col="label", positive_only=False

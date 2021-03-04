@@ -126,14 +126,14 @@ class CustomPyTorchDeepIDExplainer(Explainer):
                 val = self.model.forward_shap(x_gpu, m, full_id_matrix=True)
                 selected = [val[0, idx]]
                 
-                grad = torch.autograd.grad(selected, x_gpu)[0].detach()
-                grads.append(grad.cpu().numpy())
-                val = val.detach()
-                selected = selected[0].detach()
-                #grads.append(torch.autograd.grad(selected, x_gpu)[0].cpu().numpy())
+                grads.append(torch.autograd.grad(selected, x_gpu)[0].cpu().numpy())
+                #grad = torch.autograd.grad(selected, x_gpu)[0]
+                #grads.append(grad.cpu().numpy())
+                #val = val.detach()
+                #selected = selected[0].detach()
                 #del val, selected, x_gpu #To reserve GPU memory space
-            import gc; gc.collect()
-            torch.cuda.empty_cache()
+            #import gc; gc.collect()
+            #torch.cuda.empty_cache()
             return [np.stack(grads)]
         else:
             X = [x.requires_grad_() for x in inputs]
@@ -239,15 +239,15 @@ class CustomPyTorchDeepIDExplainer(Explainer):
 #                     fp.write(out)
                     
                 sample_phis = self.gradient(feature_ind, joint_x, joint_masks, model_device)
-                out = ''
-                for obj in gc.get_objects():
-                    try:
-                        if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
-                            out += f'\n{type(obj)}, {obj.size()}'
-                    except:
-                        pass
-                with open('out2.txt', 'w') as fp:
-                    fp.write(out)
+#                 out = ''
+#                 for obj in gc.get_objects():
+#                     try:
+#                         if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
+#                             out += f'\n{type(obj)}, {obj.size()}'
+#                     except:
+#                         pass
+#                 with open('out2.txt', 'w') as fp:
+#                     fp.write(out)
 
                 # assign the attributions to the right part of the output arrays
                 if self.interim:

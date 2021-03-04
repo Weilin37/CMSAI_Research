@@ -60,8 +60,6 @@ import sys
 
 sys.path.append("../")
 
-from gpu_profile import gpu_profile
-
 import os
 import json
 import time
@@ -97,6 +95,7 @@ from xgboost_utils import *
 
 # from lrp_att_model import *
 import shap_jacc_utils as sj_utils
+from utils import *
 
 from cdiff_utils import *
 
@@ -123,27 +122,27 @@ def run_epoch(lstm_model,
               test_results, 
               train_dataloader, 
               valid_dataloader, 
-              test_dataloader, 
+              test_dataloader,
+              train_path,
+              valid_path,
+              test_path,
+              vocab_path,
               val_batch, 
               test_batch, 
               model_params, 
+              params_path,
               epoch, 
               model_save_path_pattern, 
               shap_save_dir_pattern, 
               output_results_path, 
-              seq_len):
+              seq_len,
+              nrows,
+             ):
     
         start_time = time.time()
 
-        MULTIGPU_LST = []
-        if torch.cuda.is_available():
-            n_gpus = torch.cuda.device_count()
-            for gpu in range(n_gpus):
-                MULTIGPU_LST.append(f"cuda:{gpu}")
-
         rbo_p = 0.8
         SIMILARITY_FREEDOM = 1  # For Intersection Similarity
-
 
         val_patient_ids, val_labels, val_idxed_text = val_batch
         test_patient_ids, test_labels, test_idxed_text = test_batch
@@ -179,8 +178,8 @@ def run_epoch(lstm_model,
         epoch_mins, epoch_secs = epoch_time(start_time, end_time)
 
         # save model
-        save_path = model_save_path_pattern.format(str(epoch).zfill(2))
-        torch.save(lstm_model.state_dict(), save_path)
+        model_save_path = model_save_path_pattern.format(str(epoch).zfill(2))
+        torch.save(lstm_model.state_dict(), model_save_path)
 
         scheduler.step()
 
@@ -256,83 +255,26 @@ def run_epoch(lstm_model,
             test_results[epoch][test_patient_ids[sel_idx]]["pred"] = lrp_model.s[0]
             test_results[epoch][test_patient_ids[sel_idx]]["imp"] = df.copy()
 
-        shap_start_time = time.time()
-        (
-            val_features,
-            val_scores,
-            val_patients,
-        ) = sj_utils.get_lstm_features_and_shap_scores(
-            lstm_model.cuda(),
-            train_dataloader,
-            valid_dataloader,
-            seq_len,
-            "",
-            save_output=False,
-            n_background=model_params["n_background"],
-            background_negative_only=model_params["background_negative_only"],
-            n_test=model_params["n_valid_examples"],
-            test_positive_only=model_params["test_positive_only"],
-            is_test_random=model_params["is_test_random"],
-        )
-
+        #Run SHAP
         #import pdb; pdb.set_trace()
-        (
-            test_features,
-            test_scores,
-            test_patients,
-        ) = sj_utils.get_lstm_features_and_shap_scores(
-            lstm_model.cuda(),
-            train_dataloader,
-            test_dataloader,
-            seq_len,
-            "",
-            save_output=False,
-            n_background=model_params["n_background"],
-            background_negative_only=model_params["background_negative_only"],
-            n_test=model_params["n_valid_examples"],
-            test_positive_only=model_params["test_positive_only"],
-            is_test_random=model_params["is_test_random"],
-        )
-        #import pdb; pdb.set_trace()
-#         (
-#             val_features,
-#             val_scores,
-#             val_patients,
-#         ) = get_lstm_features_and_shap_scores_mp(
-#             lstm_model.cpu(),
-#             train_dataloader,
-#             (val_patient_ids, val_labels, val_idxed_text),
-#             seq_len,
-#             "",
-#             save_output=False,
-#             n_background=model_params["n_background"],
-#             background_negative_only=model_params["background_negative_only"],
-#             test_positive_only=model_params["test_positive_only"],
-#             is_test_random=model_params["is_test_random"],
-#             multigpu_lst=MULTIGPU_LST,  # ["cuda:2", "cuda:3", "cuda:1"],
-#         )
-
-#         (
-#             test_features,
-#             test_scores,
-#             test_patients,
-#         ) = get_lstm_features_and_shap_scores_mp(
-#             lstm_model.cpu(),
-#             train_dataloader,
-#             (test_patient_ids, test_labels, test_idxed_text),
-#             seq_len,
-#             "",
-#             save_output=False,
-#             n_background=model_params["n_background"],
-#             background_negative_only=model_params["background_negative_only"],
-#             test_positive_only=model_params["test_positive_only"],
-#             is_test_random=model_params["is_test_random"],
-#             multigpu_lst=MULTIGPU_LST,  # ["cuda:2", "cuda:3", "cuda:1"],
-#         )
+        shap_start_time = time.time()    
+        multigpu = 1
+        shap_valid_output_path = shap_save_dir_pattern.format("val", epoch)
+        shap_valid_output_path = shap_valid_output_path.replace('shap/', 'shap_intermediate/')
+        shap_test_output_path = shap_save_dir_pattern.format("test", epoch)
+        shap_test_output_path = shap_test_output_path.replace('shap/', 'shap_intermediate/')        
+        command = f'python my_shap.py --model_path={model_save_path} --params_path={params_path} '
+        command += f'--train_path={train_path} --valid_path={valid_path} --test_path={test_path} --vocab_path={vocab_path} '
+        command += f'--valid_output_path={shap_valid_output_path} --test_output_path={shap_test_output_path} '
+        command += f'--seq_len={seq_len} --multigpu={multigpu} --nrows={int(nrows)}'
+        os.system(command)
+        #Load SHAP Results
+        (val_features, val_scores, val_patients) = load_pickle(shap_valid_output_path)
+        (test_features, test_scores, test_patients) = load_pickle(shap_test_output_path)
 
         shap_end_time = time.time()
         shap_mins, shap_secs = epoch_time(shap_start_time, shap_end_time)
-
+        
         for idx, pid in enumerate(val_patients):
             df = valid_results[epoch][pid]["imp"]
             assert len(df) == len(val_scores[idx])
@@ -383,26 +325,11 @@ def run_epoch(lstm_model,
             lrp_scores = imp_df.lrp_scores.values
             shap_scores = imp_df.shap_scores.values
             tokens = imp_df.u_token
-            lrp_sim = get_similarity(lrp_scores, tokens, gt_codes, freedom=1)
-            shap_sim = get_similarity(shap_scores, tokens, gt_codes, freedom=1)
+            lrp_sim = get_similarity(lrp_scores, tokens, freedom=1)
+            shap_sim = get_similarity(shap_scores, tokens, freedom=1)
             if lrp_sim != -1:
                 epoch_val_lrp_sim.append(lrp_sim)
                 epoch_val_shap_sim.append(shap_sim)
-            #             # gt_idx = [x for x, tok in enumerate(imp_df.u_token) if is_value(tok)]
-            #             gt_idx = [x for x, tok in enumerate(imp_df.u_token) if tok in gt_codes]
-            #             n_gt = len(gt_idx)
-            #             if n_gt > 0:
-            #                 lrp_idx = np.argsort(np.abs(imp_df.lrp_scores.values))[::-1][: n_gt + 1]
-            #                 shap_idx = np.argsort(np.abs(imp_df.shap_scores.values))[::-1][
-            #                     : n_gt + 1
-            #                 ]
-            #                 lrp_sim = len(set(lrp_idx).intersection(gt_idx)) / n_gt
-            #                 shap_sim = len(set(shap_idx).intersection(gt_idx)) / n_gt
-            #                 epoch_val_lrp_sim.append(lrp_sim)
-            #                 epoch_val_shap_sim.append(shap_sim)
-            #             else:
-            #                 lrp_sim = -1
-            #                 shap_sim = -1
             valid_results[epoch][pid]["lrp_sim"] = lrp_sim
             valid_results[epoch][pid]["shap_sim"] = shap_sim
 
@@ -449,30 +376,14 @@ def run_epoch(lstm_model,
             shap_scores = imp_df.shap_scores.values
             tokens = imp_df.u_token
             lrp_sim = get_similarity(
-                lrp_scores, tokens, gt_codes, freedom=SIMILARITY_FREEDOM
+                lrp_scores, tokens, freedom=SIMILARITY_FREEDOM
             )
             shap_sim = get_similarity(
-                shap_scores, tokens, gt_codes, freedom=SIMILARITY_FREEDOM
+                shap_scores, tokens, freedom=SIMILARITY_FREEDOM
             )
             if lrp_sim != -1:
                 epoch_test_lrp_sim.append(lrp_sim)
                 epoch_test_shap_sim.append(shap_sim)
-
-            #             #gt_idx = [x for x, tok in enumerate(imp_df.u_token) if is_value(tok)]
-            #             gt_idx = [x for x, tok in enumerate(imp_df.u_token) if tok in gt_codes]
-            #             n_gt = len(gt_idx)
-            #             if n_gt > 0:
-            #                 lrp_idx = np.argsort(np.abs(imp_df.lrp_scores.values))[::-1][: n_gt + 1]
-            #                 shap_idx = np.argsort(np.abs(imp_df.shap_scores.values))[::-1][
-            #                     : n_gt + 1
-            #                 ]
-            #                 lrp_sim = len(set(lrp_idx).intersection(gt_idx)) / n_gt
-            #                 shap_sim = len(set(shap_idx).intersection(gt_idx)) / n_gt
-            #                 epoch_test_lrp_sim.append(lrp_sim)
-            #                 epoch_test_shap_sim.append(shap_sim)
-            #             else:
-            #                 lrp_sim = -1
-            #                 shap_sim = -1
             test_results[epoch][pid]["lrp_sim"] = lrp_sim
             test_results[epoch][pid]["shap_sim"] = shap_sim
 
@@ -527,7 +438,11 @@ def run(lstm_model,
         optimizer, 
         train_dataloader, 
         valid_dataloader, 
-        test_dataloader, 
+        test_dataloader,
+        train_path,
+        valid_path,
+        test_path,
+        vocab_path,
         model_params, 
         n_epochs, 
         params_path, 
@@ -535,6 +450,7 @@ def run(lstm_model,
         shap_save_dir_pattern, 
         output_results_path, 
         seq_len, 
+        nrows,
         train_model=True):
     
     valid_results = {}
@@ -563,11 +479,13 @@ def run(lstm_model,
 
         val_batch = (val_patient_ids, val_labels, val_idxed_text)
         test_batch = (test_patient_ids, test_labels, test_idxed_text)
-        # patient_ids, labels, idxed_text = get_sub_valid_data(N_VALID_EXAMPLES, MODEL_PARAMS['batch_size'], valid_dataloader)
+
+        # Save Model Parameters
+        with open(params_path, "w") as fp:
+            json.dump(model_params, fp)
 
         for epoch in range(n_epochs):
-            
-            import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             (
                 lstm_model,
                 scheduler,
@@ -588,7 +506,7 @@ def run(lstm_model,
                 test_lrp_shap_tau_lst,
                 valid_results, 
                 test_results, 
-            ) = run_epoch(lstm_model=lstm_model, 
+            ) = run_epoch(lstm_model, 
                           scheduler=scheduler,
                           optimizer=optimizer,
                           train_auc_lst=train_auc_lst, 
@@ -610,14 +528,20 @@ def run(lstm_model,
                           train_dataloader=train_dataloader, 
                           valid_dataloader=valid_dataloader, 
                           test_dataloader=test_dataloader, 
+                          train_path=train_path,
+                          valid_path=valid_path,
+                          test_path=test_path,
+                          vocab_path=vocab_path,
                           val_batch=val_batch,
                           test_batch=test_batch,
-                          model_params=model_params, 
+                          model_params=model_params,
+                          params_path=params_path,
                           epoch=epoch,
                           model_save_path_pattern=model_save_path_pattern, 
                           shap_save_dir_pattern=shap_save_dir_pattern, 
                           output_results_path=output_results_path, 
                           seq_len=seq_len,
+                          nrows=nrows,
                          )
     
         df_results = pd.DataFrame()
@@ -641,10 +565,6 @@ def run(lstm_model,
         # save results summary
         df_results.to_csv(output_results_path)
 
-        # Save Model Parameters
-        with open(params_path, "w") as fp:
-            json.dump(model_params, fp)
-
     else:
         print("Loading Training results....")
         df_results = pd.read_csv(output_results_path)
@@ -661,23 +581,19 @@ def run(lstm_model,
                 test_results[epoch] = pickle.load(fp)
         print("SUCCESS!")
         
-    gpu_profile(frame=sys._getframe(), event='line', arg=None)
-    
     return df_results, valid_results, test_results
 
 
 if __name__ == "__main__":
-    
-    sys.settrace(gpu_profile)
 
     MODEL_NAME = "lstm-att-lrp"
 
-    NROWS = 1000 #1e9
+    NROWS = 1e9
 
     TRAIN_MODEL = True
-    SEQ_LEN = 200
+    SEQ_LEN = 100
 
-    N_EPOCHS = 3 #10
+    N_EPOCHS = 10
 
     TARGET_COLNAME = "d_00845"
     UID_COLNAME = "patient_id"
@@ -687,18 +603,18 @@ if __name__ == "__main__":
     FNAME = "all"
     SAVE_DATASET = True
 
-    BATCH_SIZE = 4#64
+    BATCH_SIZE = 64
     # Model Parameters
     MODEL_PARAMS = {
         # Dataset/vocab related
-        "min_freq": 500,
+        "min_freq": 10000,
         "batch_size": BATCH_SIZE,
         # Model related parameters
-        "embedding_dim": 30,  # 30
-        "hidden_dim": 30,  # 30
+        "embedding_dim": 10,
+        "hidden_dim": 10,
         "nlayers": 1,
         "bidirectional": True,
-        "dropout": 0.3,
+        "dropout": 0.0,
         "linear_bias": False,
         "init_type": "zero",  # zero/learned
         "learning_rate": 0.01,
@@ -777,60 +693,59 @@ if __name__ == "__main__":
 
     gt_codes = pd.read_csv(GT_CODES_PATH)
     gt_codes = list(set(gt_codes.Internal_Code))
-    len(gt_codes)
+    print(f'# of Ground Truth Risk Codes: {len(gt_codes)}')
 
 
-    # if TRAIN_MODEL:
-    #     df = pd.read_csv(TRAIN_DATA_PATH)
-    #     df_val = pd.read_csv(VALID_DATA_PATH)
-    #     df_test = pd.read_csv(TEST_DATA_PATH)
+    if TRAIN_MODEL:
+        df = pd.read_csv(TRAIN_DATA_PATH)
+        df_val = pd.read_csv(VALID_DATA_PATH)
+        df_test = pd.read_csv(TEST_DATA_PATH)
 
-    #     # Take upto seq_len cols
-    #     # cols = df.columns.tolist()
-    #     # exclude = [str(i) for i in range(1000, SEQ_LEN, -1)]
-    #     # cols = [col for col in cols if col not in exclude]
-    #     # df = df[cols]
-    #     # df.head()
+        # Take upto seq_len cols
+        # cols = df.columns.tolist()
+        # exclude = [str(i) for i in range(1000, SEQ_LEN, -1)]
+        # cols = [col for col in cols if col not in exclude]
+        # df = df[cols]
+        # df.head()
 
-    #     cols = [str(i) for i in range(SEQ_LEN - 1, -1, -1)]
-    #     vocab = Counter(df[cols].values.flatten().tolist())
+        cols = [str(i) for i in range(SEQ_LEN - 1, -1, -1)]
+        vocab = Counter(df[cols].values.flatten().tolist())
 
-    #     # Remove tokens not in gt_codes
-    #     for token in list(vocab):
-    #         if (token not in gt_codes) or (vocab[token] < MODEL_PARAMS["min_freq"]):
-    #             del vocab[token]
-    #     print(len(vocab))
-    #     gt_codes2 = sorted(vocab)
+        # Remove tokens not in gt_codes
+        for token in list(vocab):
+            if (not token.endswith('_rf')): # or (vocab[token] < MODEL_PARAMS["min_freq"]):
+                del vocab[token]
+        print(f'Total GT Codes in Vocab: {len(vocab)}')
 
-    #     df["num_gt_codes"] = df.apply(
-    #         get_gt_code_patient, args=(gt_codes2, SEQ_LEN), axis=1
-    #     )
-    #     df["has_gt_codes"] = (df["num_gt_codes"] > 0).astype(int)
-    #     df = df.sort_values("has_gt_codes", ascending=False)
+        df["num_gt_codes"] = df.apply(
+            get_gt_code_patient, args=(SEQ_LEN,), axis=1
+        )
+        df["has_gt_codes"] = (df["num_gt_codes"] > 0).astype(int)
+        df = df.sort_values("has_gt_codes", ascending=False)
 
-    #     df_val["num_gt_codes"] = df_val.apply(
-    #         get_gt_code_patient, args=(gt_codes2, SEQ_LEN), axis=1
-    #     )
-    #     df_val["has_gt_codes"] = (df_val["num_gt_codes"] > 0).astype(int)
-    #     df_val = df_val.sort_values("has_gt_codes", ascending=False)
+        df_val["num_gt_codes"] = df_val.apply(
+            get_gt_code_patient, args=(SEQ_LEN,), axis=1
+        )
+        df_val["has_gt_codes"] = (df_val["num_gt_codes"] > 0).astype(int)
+        df_val = df_val.sort_values("has_gt_codes", ascending=False)
 
-    #     df_test["num_gt_codes"] = df_test.apply(
-    #         get_gt_code_patient, args=(gt_codes2, SEQ_LEN), axis=1
-    #     )
-    #     df_test["has_gt_codes"] = (df_test["num_gt_codes"] > 0).astype(int)
-    #     df_test = df_test.sort_values("has_gt_codes", ascending=False)
+        df_test["num_gt_codes"] = df_test.apply(
+            get_gt_code_patient, args=(SEQ_LEN,), axis=1
+        )
+        df_test["has_gt_codes"] = (df_test["num_gt_codes"] > 0).astype(int)
+        df_test = df_test.sort_values("has_gt_codes", ascending=False)
 
-    #     out_dir = os.path.dirname(OUT_TRAIN_DATA_PATH)
-    #     os.makedirs(out_dir, exist_ok=True)
+        out_dir = os.path.dirname(OUT_TRAIN_DATA_PATH)
+        os.makedirs(out_dir, exist_ok=True)
 
-    #     df.to_csv(OUT_TRAIN_DATA_PATH, index=False)
-    #     df_val.to_csv(OUT_VALID_DATA_PATH, index=False)
-    #     df_test.to_csv(OUT_TEST_DATA_PATH, index=False)
-    # else:
-    #     pass
-    # #     df_train = pd.read_csv(OUT_TRAIN_DATA_PATH)
-    # #     df_val = pd.read_csv(OUT_VALID_DATA_PATH)
-    # #     df_test = pd.read_csv(OUT_TEST_DATA_PATH)
+        df.to_csv(OUT_TRAIN_DATA_PATH, index=False)
+        df_val.to_csv(OUT_VALID_DATA_PATH, index=False)
+        df_test.to_csv(OUT_TEST_DATA_PATH, index=False)
+    else:
+        pass
+    #     df_train = pd.read_csv(OUT_TRAIN_DATA_PATH)
+    #     df_val = pd.read_csv(OUT_VALID_DATA_PATH)
+    #     df_test = pd.read_csv(OUT_TEST_DATA_PATH)
 
     df_train = pd.read_csv(OUT_TRAIN_DATA_PATH)
     print(df_train.shape)
@@ -889,7 +804,13 @@ if __name__ == "__main__":
         vocab=None,
         nrows=NROWS,
         rev=MODEL_PARAMS["rev"],
+        cdiff = True,        
     )
+    
+    #Save Vocab
+    with open(VOCAB_PATH, 'wb') as fp:
+        pickle.dump(vocab, fp)
+        
 
     valid_dataset, _ = build_lstm_dataset(
         OUT_VALID_DATA_PATH,
@@ -928,15 +849,15 @@ if __name__ == "__main__":
     )
 
     train_dataloader = DataLoader(
-        train_dataset, batch_size=MODEL_PARAMS["batch_size"], shuffle=True, num_workers=2
+        train_dataset, batch_size=MODEL_PARAMS["batch_size"], shuffle=True, num_workers=8
     )
 
     valid_dataloader = DataLoader(
-        valid_dataset, batch_size=MODEL_PARAMS["batch_size"], shuffle=False, num_workers=2
+        valid_dataset, batch_size=MODEL_PARAMS["batch_size"], shuffle=False, num_workers=8
     )
 
     test_dataloader = DataLoader(
-        test_dataset, batch_size=MODEL_PARAMS["batch_size"], shuffle=False, num_workers=2
+        test_dataset, batch_size=MODEL_PARAMS["batch_size"], shuffle=False, num_workers=8
     )
 
     example_dataloader = DataLoader(
@@ -978,7 +899,11 @@ if __name__ == "__main__":
             optimizer=optimizer,
             train_dataloader=train_dataloader, 
             valid_dataloader=valid_dataloader, 
-            test_dataloader=test_dataloader, 
+            test_dataloader=test_dataloader,
+            train_path=OUT_TRAIN_DATA_PATH,
+            valid_path=OUT_VALID_DATA_PATH,
+            test_path=OUT_TEST_DATA_PATH,
+            vocab_path=VOCAB_PATH,
             model_params=MODEL_PARAMS, 
             n_epochs=N_EPOCHS, 
             params_path=PARAMS_PATH,
@@ -986,4 +911,6 @@ if __name__ == "__main__":
             shap_save_dir_pattern=SHAP_SAVE_DIR_PATTERN, 
             output_results_path=OUTPUT_RESULTS_PATH, 
             seq_len=SEQ_LEN, 
-            train_model=TRAIN_MODEL)
+            nrows=NROWS,
+            train_model=TRAIN_MODEL,
+           )

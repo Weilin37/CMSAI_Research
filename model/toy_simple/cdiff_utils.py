@@ -34,6 +34,7 @@ from lstm_models import *
 from att_lstm_models import *
 from lstm_utils import *
 from xgboost_utils import *
+from utils import *
 
 # from lrp_att_model import *
 import shap_jacc_utils as sj_utils
@@ -45,11 +46,9 @@ def get_ground_truth_codes(codes_path, vocab0, seq_len):
     df_gt_codes = pd.read_csv(codes_path)
     gt_codes = list(set(df_gt_codes.Internal_Code.tolist()))
     print(f"Total GT codes original: {len(gt_codes)}")
-    cols = [str(i) for i in range(seq_len - 1, -1, -1)]
     vocab = list(vocab0._vocab.keys())
     print(f"Total vocab: {len(vocab)}")
-    # vocab = set(df[cols].values.flatten().tolist())
-    gt_codes = [code for code in gt_codes if code in vocab]
+    gt_codes = [code for code in vocab if code.endswith('_rf')]
     print(f"Total GT Available: {len(gt_codes)}")
     return gt_codes, df_gt_codes
 
@@ -1306,16 +1305,17 @@ def get_lstm_features_and_shap_scores_mp(
 
     return shap_values
 
-def get_gt_code_patient(row, gt_codes, seq_len=1000):
+def get_gt_code_patient(row, seq_len=1000):
     """Get patient_id of those having the gt_codes"""
     cols = [str(i) for i in range(seq_len - 1, -1, -1)]
-    num_common = len(set(row[cols]).intersection(gt_codes))
+    row0 = row[cols].tolist()
+    num_common = len(set([code for code in row0 if code.endswith('_rf')]))
     return num_common
 
 
-def get_similarity(scores, tokens, gt_codes, freedom):
+def get_similarity(scores, tokens, freedom):
     """Computes Intersection similarity based on the given scores, tokens GT codes and degree of freedom."""
-    gt_idx = [x for x, tok in enumerate(tokens) if tok.split("_", 1)[1] in gt_codes]
+    gt_idx = [x for x, tok in enumerate(tokens) if tok.endswith('_rf')]
     n_gt = len(gt_idx)
     if n_gt > 0:
         scores_idx = np.argsort(np.abs(scores))[::-1][: n_gt + freedom]
