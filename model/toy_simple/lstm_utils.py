@@ -72,6 +72,7 @@ def build_lstm_dataset(
     vocab=None,
     nrows=1e9,
     rev=True,
+    cdiff=False,
 ):
     """
     Reads in dataset line by line, creates vocabulary and subsets dataset to list of arrays to be used later.
@@ -92,6 +93,7 @@ def build_lstm_dataset(
         vocab (Vocab) : default None creates vocabulary. Will use provided vocab if given.
         nrows (int) : number of rows to process
         rev(bool): Whether to reverse the token list
+        cdiff(bool): If data is cdiff or synthetic
 
     Returns:
     --------
@@ -151,6 +153,10 @@ def build_lstm_dataset(
 
             tokens = [tokens[idx] for idx in x_idxes]
             tokens = [t.strip().replace("\n", "") for t in tokens if valid_token(t)]
+            
+            if not tokens:
+                line = f.readline()
+                continue
 
             if rev:
                 tokens = tokens[::-1]
@@ -177,8 +183,12 @@ def build_lstm_dataset(
                 counter[token] += 1
 
         for token in counter:
-            if counter[token] < min_freq:
-                continue
+            if cdiff:
+                if (counter[token] < min_freq) and (not token.endswith('_rf')):
+                    continue
+            else:
+                if counter[token] < min_freq:
+                    continue
 
             idx = len(vocab)
             vocab[token] = idx

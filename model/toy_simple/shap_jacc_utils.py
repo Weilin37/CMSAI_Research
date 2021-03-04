@@ -17,6 +17,7 @@ from collections import defaultdict, OrderedDict, Counter
 import deep_id_pytorch
 from utils import *
 
+import gc
 
 def get_xgboost_background(
     data, n_background=500, negative_only=True, target_col="label", positive_only=False
@@ -147,7 +148,7 @@ def get_all_lstm_shap(dataloader, seq_len, model, explainer, positive_only=False
                 pad_indx = events.index(pad)
                 events = events[:pad_indx]
 
-            vals = vals[:pad_indx]
+                vals = vals[:pad_indx]
             features.append(events)
             scores.append(vals[:])
             patients.append(patient_id)
@@ -238,14 +239,25 @@ def get_lstm_features_and_shap_scores(
                 pad_indx = events.index(pad)
                 events = events[:pad_indx]
 
-            vals = vals[:pad_indx]
+                vals = vals[:pad_indx]
             features.append(events)
             scores.append(vals[:])
             patients.append(patient_id)
         print('Done getting shap values (2)')
 
+
+        #For explainer
         shap_values = (features, scores, patients)
-    
+
+#     import gc
+#     for obj in gc.get_objects():
+#         try:
+#             if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
+#                 print(type(obj), obj.size())
+#         except:
+#             pass
+#     import pdb; pdb.set_trace()
+
     if save_output:
         if not os.path.isdir(os.path.split(shap_path)[0]):
             os.makedirs(os.path.split(shap_path)[0])
@@ -530,11 +542,16 @@ def get_global_feature_importance(all_features, all_scores, absolute=True):
     return my_all_features
 
 
-def plot_global_feature_importance(feature_importances):
+def plot_global_feature_importance(feature_importances, max_features=None):
     """Plots the global feature importances in horizontal barplot"""
     df = pd.DataFrame(feature_importances, index=range(1)).T
+    if max_features is not None:
+        df = df.sort_values(0, ascending=False)
+        df = df.iloc[:max_features]
+        df = df.sort_values(0, ascending=True)
     df.plot.barh(figsize=(10, 20), legend=False)
     plt.show()
+    return df
 
 
 def get_epoch_number_from_path(model_path):
