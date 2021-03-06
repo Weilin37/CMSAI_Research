@@ -236,6 +236,7 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False
     epoch_metric = 0
 
     model.train()
+    optimizer.zero_grad()
 
     # initialize lists to compare predictions & ground truth labels for metric calculation
     order_labels = []
@@ -245,7 +246,7 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False
         
     for idx, (ids, labels, idxed_text) in enumerate(dataloader):
 
-        optimizer.zero_grad()
+#         optimizer.zero_grad()
 
         labels = labels.type(torch.long)
         
@@ -266,6 +267,7 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
             #torch.nn.utils.clip_grad_norm_(model.parameters(), -0.5)
         optimizer.step()
+        optimizer.zero_grad()
 
         # prevent internal pytorch timeout due to too many file opens by multiprocessing
         copied_labels = copy.deepcopy(labels.detach().cpu().numpy())
@@ -282,7 +284,7 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False
             if counter >= test:
                 break
             counter += 1
-
+        
     epoch_metric = roc_auc_score(
         order_labels, torch.sigmoid(torch.Tensor(prediction_scores))
     )

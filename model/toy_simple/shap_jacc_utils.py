@@ -157,9 +157,13 @@ def get_all_lstm_shap(dataloader, seq_len, model, explainer, positive_only=False
             if (n_test is not None) and (i >= n_test):
                 stop = True
                 break
+        print(events)
+        print(vals)
+        print(patient_id)
         if stop:
             break
-
+            
+    
     return (features, scores, patients)
 
 def get_lstm_features_and_shap_scores(
@@ -178,23 +182,35 @@ def get_lstm_features_and_shap_scores(
 ):
     """Get all features and shape importance scores for each example in te_dataloader."""
     # Get background
+    print('Getting background')
     background = get_lstm_background(
         tr_dataloader, n_background=n_background, negative_only=background_negative_only
     )
     # background = next(iter(tr_dataloader))
     background_ids, background_labels, background_idxes = background
+    print('Done getting background')
+    print(os.system('echo nvidia-smi'))
+    print('Getting get_all_ids_masks')
     bg_data, bg_masks = model.get_all_ids_masks(background_idxes, seq_len)
-    #import pdb; pdb.set_trace()
+    print('Done get_all_ids_masks')
+    print(os.system('echo nvidia-smi'))
+    print('Getting CustomPyTorchDeepIDExplainer')
     explainer = deep_id_pytorch.CustomPyTorchDeepIDExplainer(
         model, bg_data, bg_masks, gpu_memory_efficient=True
     )
+    print('Done get_all_ids_masks')
+    print(os.system('echo nvidia-smi'))
 
     model.train()  # in case that shap complains that autograd cannot be called
 
     shap_values = None
     if (n_test is None) or (n_test > 32):
+        print('Getting shap values (1)')
         shap_values = get_all_lstm_shap(te_dataloader, seq_len, model, explainer, test_positive_only, n_test)
+        print('Done getting shap values (1)')
+        print(os.system('echo nvidia-smi'))
     else:
+        print('Getting shap values (2)')
         # test = next(iter(te_dataloader))
         test = get_lstm_data(
             te_dataloader,
@@ -227,6 +243,7 @@ def get_lstm_features_and_shap_scores(
             features.append(events)
             scores.append(vals[:])
             patients.append(patient_id)
+        print('Done getting shap values (2)')
 
 
         #For explainer
