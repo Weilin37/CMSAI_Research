@@ -607,7 +607,7 @@ if __name__ == "__main__":
     # Model Parameters
     MODEL_PARAMS = {
         # Dataset/vocab related
-        "min_freq": 10000,
+        "min_freq": 1000,
         "batch_size": BATCH_SIZE,
         # Model related parameters
         "embedding_dim": 10,
@@ -618,7 +618,7 @@ if __name__ == "__main__":
         "linear_bias": False,
         "init_type": "zero",  # zero/learned
         "learning_rate": 0.01,
-        "scheduler_step": 3,
+        "scheduler_step": 2,
         "clip": True,
         "rev": False,
         # SHAP-related parameters
