@@ -108,11 +108,11 @@ def move_ad_dis(events_in_day):
         has_discharge = True
         events_in_day.remove("discharge")
 
-    #     if has_admission:
-    #         events_in_day.append("admission")
+        if has_admission:
+            events_in_day.append("admission")
 
-    #     if has_discharge:
-    #         events_in_day.append("discharge")
+        if has_discharge:
+            events_in_day.append("discharge")
 
     return events_in_day
 
@@ -186,7 +186,7 @@ def split_data(df, test_size, label, output_dir, n_events=1000):
 # In[ ]:
 
 
-NROWS = None 
+NROWS = 10#None 
 
 N_DAYS = 365  # Number of input days
 N_EVENTS = 1000  # Output number of events
@@ -201,43 +201,43 @@ COPY_LIST = [LABEL, UID_COLUMN]
 SPLIT_TEST_SIZE = 0.15  # 70/15/15 splits
 
 RAW_DATA_DIR = "/home/ec2-user/SageMaker/CMSAI/modeling/tes/data/anonymize/AE/Data/Anonymized/365NoDeath/"
-OUTPUT_ORIGINAL_DIR = "./output/data/1000/original/"
+OUTPUT_ORIGINAL_DIR = "./output/data/1000/original_v2/"
 
-OUTPUT_DOWNSAMPLED_DIR = "./output/data/1000/downsampled/"
+OUTPUT_DOWNSAMPLED_DIR = "./output/data/1000/downsampled_v2/"
 
 os.makedirs(OUTPUT_ORIGINAL_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DOWNSAMPLED_DIR, exist_ok=True)
 
 df_all = None
-#df_down_all = None
-for i in range(1, 7):
+df_down_all = None
+for i in range(1, 11):
     MONTH = f"2011{i:02}01"
     print(f"Processing data for Month: {MONTH}....")
 
     IN_FNAME = f"ae_patients_365_{MONTH}.csv"
     OUT_FNAME = f"{MONTH}.csv"
 
-    #raw_data_path = os.path.join(RAW_DATA_DIR, IN_FNAME)
+    raw_data_path = os.path.join(RAW_DATA_DIR, IN_FNAME)
     flat_data_path = os.path.join(OUTPUT_ORIGINAL_DIR, OUT_FNAME)
     flat_downsampled_path = os.path.join(OUTPUT_DOWNSAMPLED_DIR, OUT_FNAME)
 
-    #df_raw = pd.read_csv(raw_data_path, low_memory=False, nrows=NROWS)
+    df_raw = pd.read_csv(raw_data_path, low_memory=False, nrows=NROWS)
 
-    #df_flat = get_flat_df(df_raw, X_INPUT_LST, COPY_LIST, N_EVENTS)
+    df_flat = get_flat_df(df_raw, X_INPUT_LST, COPY_LIST, N_EVENTS)
 
-    df_flat = pd.read_csv(flat_data_path)
+    #df_flat = pd.read_csv(flat_data_path)
     print(f"Flat Shape = {df_flat.shape}")
     df_down = pd.read_csv(flat_downsampled_path)
     print(f"Downsampled Shape = {df_down.shape}")
     
     #df_down = pd.read_csv(flat_downsampled_path)
     #print(f"Downsampled Shape = {df_down.shape}")
-    #df_down = downsample(df_flat, LABEL)
-    #print(f"Flat Shape = {df_flat.shape}, Downsampled Shape = {df_down.shape}")
+    df_down = downsample(df_flat, LABEL)
+    print(f"Flat Shape = {df_flat.shape}, Downsampled Shape = {df_down.shape}")
 
     # Save the data
-    #df_flat.to_csv(flat_data_path, index=False)
-    #df_down.to_csv(flat_downsampled_path, index=False)
+    df_flat.to_csv(flat_data_path, index=False)
+    df_down.to_csv(flat_downsampled_path, index=False)
 
     # Split data
     output_dir = os.path.join(OUTPUT_ORIGINAL_DIR, f"splits/{MONTH}/")
