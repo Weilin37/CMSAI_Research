@@ -284,7 +284,6 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False
             if counter >= test:
                 break
             counter += 1
-        
     epoch_metric = roc_auc_score(
         order_labels, torch.sigmoid(torch.Tensor(prediction_scores))
     )
