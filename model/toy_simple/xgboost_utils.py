@@ -339,6 +339,14 @@ def get_valid_tokens(df, seq_len):
         tokens.remove('<pad>')
     return tokens
 
+def get_valid_tokens_cdiff(vocab):
+    """Get valid tokens from vocab"""
+    tokens = sorted(vocab._vocab)
+    #Remove days, <pad> and <unk>
+    tokens = [token for token in tokens if 'day' not in token]
+    tokens.remove('<pad>')
+    tokens.remove('<unk>')
+    return tokens
 
 def get_best_model_info(df):
     """Get best model path based on its Intersection Sim index."""
