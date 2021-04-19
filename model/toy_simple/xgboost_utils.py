@@ -81,7 +81,7 @@ def copy_data_to_s3(local_data_dir, s3_data_dir, splits=["train", "val", "test"]
     
 
 def prepare_data(
-    input_path, out_one_hot_path, out_data_path, seq_len, target_colname, tokens, s3_dir, use_freq=False
+    input_path, out_one_hot_path, out_data_path, seq_len, target_colname, tokens, s3_dir, use_freq=False, copy_s3=False
 ):
     """Prepare data for xgboost training."""
     df = pd.read_csv(input_path)
@@ -98,10 +98,11 @@ def prepare_data(
     columns = [columns[-1]] + columns[:-1]
     df0[columns].to_csv(out_data_path, index=False, header=None)
 
-    fname = os.path.basename(out_data_path)
-    s3_path = os.path.join(s3_dir, fname)
-    command = "aws s3 cp {} {}".format(out_data_path, s3_path)
-    os.system(command)
+    if copy_s3:
+        fname = os.path.basename(out_data_path)
+        s3_path = os.path.join(s3_dir, fname)
+        command = "aws s3 cp {} {}".format(out_data_path, s3_path)
+        os.system(command)
     print("Sucess!")
 
     
