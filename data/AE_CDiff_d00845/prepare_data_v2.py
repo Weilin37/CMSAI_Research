@@ -35,6 +35,7 @@
 import numpy as np
 import pandas as pd
 import os
+import math
 from more_itertools import unique_everseen
 
 from sklearn.model_selection import train_test_split
@@ -108,11 +109,11 @@ def move_ad_dis(events_in_day):
         has_discharge = True
         events_in_day.remove("discharge")
 
-        if has_admission:
-            events_in_day.append("admission")
+    if has_admission:
+        events_in_day.append("admission")
 
-        if has_discharge:
-            events_in_day.append("discharge")
+    if has_discharge:
+        events_in_day.append("discharge")
 
     return events_in_day
 
@@ -180,13 +181,31 @@ def split_data(df, test_size, label, output_dir, n_events=1000):
     df_test.to_csv(os.path.join(output_dir, "test.csv"), index=False)
     return df_train, df_val, df_test
 
+def get_admission_discharge_indices(row, n_events, month):
+    """Get the indices of admission and discharge events in a row."""
+    #import pdb; pdb.set_trace()
+    patient_id = row['patient_id'] + '_' + month
+    result = {}
+    result[patient_id] = {}
+    cols = [str(i) for i in range(n_events-1, -1, -1)]
+    row = row[cols].tolist()
+    row.reverse()
+    row = np.array(row)
+    result[patient_id]['admission'] = np.where(row == 'admission')[0].tolist()
+    result[patient_id]['discharge'] = np.where(row == 'discharge')[0].tolist()
+
+    return result
+    
+    
 
 # ## Preprocess Data
 
 # In[ ]:
 
+import numpy as np
+import json
 
-NROWS = 10#None 
+NROWS = None 
 
 N_DAYS = 365  # Number of input days
 N_EVENTS = 1000  # Output number of events
@@ -201,6 +220,7 @@ COPY_LIST = [LABEL, UID_COLUMN]
 SPLIT_TEST_SIZE = 0.15  # 70/15/15 splits
 
 RAW_DATA_DIR = "/home/ec2-user/SageMaker/CMSAI/modeling/tes/data/anonymize/AE/Data/Anonymized/365NoDeath/"
+AD_DIS_PATH = './output/data/1000/admission_discharge/results.json'
 OUTPUT_ORIGINAL_DIR = "./output/data/1000/original_v2/"
 
 OUTPUT_DOWNSAMPLED_DIR = "./output/data/1000/downsampled_v2/"
@@ -208,11 +228,14 @@ OUTPUT_DOWNSAMPLED_DIR = "./output/data/1000/downsampled_v2/"
 os.makedirs(OUTPUT_ORIGINAL_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DOWNSAMPLED_DIR, exist_ok=True)
 
+os.makedirs(os.path.dirname(AD_DIS_PATH), exist_ok=True)
+
 df_all = None
 df_down_all = None
-for i in range(1, 11):
+all_ad_dis_results = {}
+for i in range(1, 12):
     MONTH = f"2011{i:02}01"
-    print(f"Processing data for Month: {MONTH}....")
+    print(f'Processing admission/discharge for month={MONTH}...')
 
     IN_FNAME = f"ae_patients_365_{MONTH}.csv"
     OUT_FNAME = f"{MONTH}.csv"
@@ -224,66 +247,14 @@ for i in range(1, 11):
     df_raw = pd.read_csv(raw_data_path, low_memory=False, nrows=NROWS)
 
     df_flat = get_flat_df(df_raw, X_INPUT_LST, COPY_LIST, N_EVENTS)
-
-    #df_flat = pd.read_csv(flat_data_path)
-    print(f"Flat Shape = {df_flat.shape}")
-    df_down = pd.read_csv(flat_downsampled_path)
-    print(f"Downsampled Shape = {df_down.shape}")
-    
-    #df_down = pd.read_csv(flat_downsampled_path)
-    #print(f"Downsampled Shape = {df_down.shape}")
-    df_down = downsample(df_flat, LABEL)
-    print(f"Flat Shape = {df_flat.shape}, Downsampled Shape = {df_down.shape}")
-
-    # Save the data
-    df_flat.to_csv(flat_data_path, index=False)
-    df_down.to_csv(flat_downsampled_path, index=False)
-
-    # Split data
-    output_dir = os.path.join(OUTPUT_ORIGINAL_DIR, f"splits/{MONTH}/")
-    os.makedirs(output_dir, exist_ok=True)
-    _ = split_data(df_flat, SPLIT_TEST_SIZE, LABEL, output_dir, n_events=N_EVENTS)
-
-    output_dir = os.path.join(OUTPUT_DOWNSAMPLED_DIR, f"splits/{MONTH}/")
-    os.makedirs(output_dir, exist_ok=True)
-    _ = split_data(df_down, SPLIT_TEST_SIZE, LABEL, output_dir, n_events=N_EVENTS)
-
-    # Combine data
-    #df_flat[UID_COLUMN] = df_flat[UID_COLUMN] + f"_{MONTH}"
-    #df_down[UID_COLUMN] = df_down[UID_COLUMN] + f"_{MONTH}"
-    #if df_all is None:
-    #if df_down_all is None:
-        #df_all = df_flat.copy()
-        #df_down_all = df_down.copy()
-    #else:
-        #df_all = pd.concat([df_all, df_flat], axis=0)
-        #df_down_all = pd.concat([df_down_all, df_down], axis=0)
-    #del df_flat
-    #del df_raw, df_flat, df_down
-    print("*" * 50)
-
-all_fname = "all.csv"
-#all_data_path = os.path.join(OUTPUT_ORIGINAL_DIR, all_fname)
-all_down_data_path = os.path.join(OUTPUT_DOWNSAMPLED_DIR, all_fname)
-
-# Shuffle dataset
-#df_all = df_all.sample(frac=1)
-#df_down_all = df_down_all.sample(frac=1)
-#print("all_flat_data shape: ", df_all.shape)
-
-df_down_all = pd.read_csv(all_down_data_path)
-print("all_down_data shape: ", df_down_all.shape)
-
-# Split data
-#output_dir = os.path.join(OUTPUT_ORIGINAL_DIR, "splits/all")
-#os.makedirs(output_dir, exist_ok=True)
-#_ = split_data(df_all, SPLIT_TEST_SIZE, LABEL, output_dir, n_events=N_EVENTS)
-
-output_dir = os.path.join(OUTPUT_DOWNSAMPLED_DIR, "splits/all")
-os.makedirs(output_dir, exist_ok=True)
-_ = split_data(df_down_all, SPLIT_TEST_SIZE, LABEL, output_dir, n_events=N_EVENTS)
-
-# Save data
-#df_all.to_csv(all_data_path, index=False)
-#df_down_all.to_csv(all_down_data_path, index=False)
-print("SUCCESS!")
+    results = df_flat.apply(get_admission_discharge_indices, args=(N_EVENTS, MONTH), axis=1)
+    results = [results[i] for i in range(len(results))]
+    for res in results:
+        all_ad_dis_results.update(res)
+        
+    with open(AD_DIS_PATH, 'w') as fp:
+        json.dump(all_ad_dis_results, fp)
+        
+with open(AD_DIS_PATH, 'w') as fp:
+    json.dump(all_ad_dis_results, fp)
+print(f'Successfully saved to {AD_DIS_PATH}!')

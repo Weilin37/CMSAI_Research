@@ -88,17 +88,17 @@ def run_shap(model_path, train_path, valid_path, test_path, vocab_path, valid_ou
         rev=MODEL_PARAMS["rev"],
         cdiff=True,
     )
-    valid_dataset, _ = build_lstm_dataset(
-        valid_path,
-        min_freq=MODEL_PARAMS["min_freq"],
-        uid_colname=uid_colname,
-        target_colname=target_colname,
-        max_len=seq_len,
-        target_value=target_value,
-        vocab=vocab,
-        nrows=MODEL_PARAMS['batch_size'],
-        rev=MODEL_PARAMS["rev"],
-    )
+#     valid_dataset, _ = build_lstm_dataset(
+#         valid_path,
+#         min_freq=MODEL_PARAMS["min_freq"],
+#         uid_colname=uid_colname,
+#         target_colname=target_colname,
+#         max_len=seq_len,
+#         target_value=target_value,
+#         vocab=vocab,
+#         nrows=MODEL_PARAMS['batch_size'],
+#         rev=MODEL_PARAMS["rev"],
+#     )
     test_dataset, _ = build_lstm_dataset(
         test_path,
         min_freq=MODEL_PARAMS["min_freq"],
@@ -114,14 +114,14 @@ def run_shap(model_path, train_path, valid_path, test_path, vocab_path, valid_ou
     train_dataloader = DataLoader(
         train_dataset, batch_size=MODEL_PARAMS["batch_size"], shuffle=False, num_workers=2
     )
-    valid_dataloader = DataLoader(
-        valid_dataset, batch_size=MODEL_PARAMS["batch_size"], shuffle=False, num_workers=2
-    )
+#     valid_dataloader = DataLoader(
+#         valid_dataset, batch_size=MODEL_PARAMS["batch_size"], shuffle=False, num_workers=2
+#     )
     test_dataloader = DataLoader(
         test_dataset, batch_size=MODEL_PARAMS["batch_size"], shuffle=False, num_workers=2
     )
 
-    val_patient_ids, val_labels, val_idxed_text = next(iter(valid_dataloader))
+#     val_patient_ids, val_labels, val_idxed_text = next(iter(valid_dataloader))
     test_patient_ids, test_labels, test_idxed_text = next(iter(test_dataloader))
 
     #Load Model
@@ -142,9 +142,10 @@ def run_shap(model_path, train_path, valid_path, test_path, vocab_path, valid_ou
     lstm_model = lstm_model.to(model_device)
 
     #Delete output directory if exists
-    shap_dir = os.path.dirname(valid_output_path)
-    if os.path.exists(shap_dir):
-        shutil.rmtree(shap_dir)
+#     shap_dir = os.path.dirname(valid_output_path)
+#     if os.path.exists(shap_dir):
+#         shutil.rmtree(shap_dir)
+    import pdb; pdb.set_trace()
     if not multigpu:
         (
             val_features,
@@ -187,24 +188,23 @@ def run_shap(model_path, train_path, valid_path, test_path, vocab_path, valid_ou
             n_gpus = torch.cuda.device_count()
             for gpu in range(1, n_gpus):
                 MULTIGPU_LST.append(f"cuda:{gpu}")
-        (
-            val_features,
-            val_scores,
-            val_patients,
-        ) = get_lstm_features_and_shap_scores_mp(
-            lstm_model.cpu(),
-            train_dataloader,
-            (val_patient_ids, val_labels, val_idxed_text),
-            seq_len,
-            valid_output_path,
-            save_output=True,
-            n_background=MODEL_PARAMS["n_background"],
-            background_negative_only=MODEL_PARAMS["background_negative_only"],
-            test_positive_only=MODEL_PARAMS["test_positive_only"],
-            is_test_random=MODEL_PARAMS["is_test_random"],
-            multigpu_lst=MULTIGPU_LST,
-        )
-
+#         (
+#             val_features,
+#             val_scores,
+#             val_patients,
+#         ) = get_lstm_features_and_shap_scores_mp(
+#             lstm_model.cpu(),
+#             train_dataloader,
+#             (val_patient_ids, val_labels, val_idxed_text),
+#             seq_len,
+#             valid_output_path,
+#             save_output=True,
+#             n_background=MODEL_PARAMS["n_background"],
+#             background_negative_only=MODEL_PARAMS["background_negative_only"],
+#             test_positive_only=MODEL_PARAMS["test_positive_only"],
+#             is_test_random=MODEL_PARAMS["is_test_random"],
+#             multigpu_lst=MULTIGPU_LST,
+#         )
         (
             test_features,
             test_scores,
