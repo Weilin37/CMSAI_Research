@@ -3,9 +3,6 @@
 
 # ## Run LRP on all test and validation results
 
-#! pip install shap
-
-
 import sys
 import os
 import json
@@ -77,8 +74,8 @@ TARGET_VALUE = "1"
 
 # Results path for val & test data
 output_dir = os.path.dirname(IMP_SAVE_DIR_PATTERN)
-VAL_RESULTS_PATH = os.path.join(output_dir, f"val_all_lrp_{BEST_EPOCH:02}.pkl")
-TEST_RESULTS_PATH = os.path.join(output_dir, f"test_all_lrp_{BEST_EPOCH:02}.pkl")
+VAL_RESULTS_PATH = os.path.join(output_dir, f"val_all_lrp_{BEST_EPOCH}.pkl")
+TEST_RESULTS_PATH = os.path.join(output_dir, f"test_all_lrp_{BEST_EPOCH}.pkl")
 
 
 # ### Load Vocab and Dataset
@@ -200,6 +197,9 @@ for sel_idx in range(len(val_labels)):
     ]
     valid_results_best[BEST_EPOCH][val_patient_ids[sel_idx]]["pred"] = lrp_model.s[0]
     valid_results_best[BEST_EPOCH][val_patient_ids[sel_idx]]["imp"] = df.copy()
+    
+    if sel_idx % 500 == 0:
+        print(f'{sel_idx} of {TOTAL_EXAMPLES}')
             
 end = time.time()
 mins, secs = epoch_time(start, end)
@@ -241,6 +241,9 @@ for sel_idx in range(len(test_labels)):
     ]
     test_results_best[BEST_EPOCH][test_patient_ids[sel_idx]]["pred"] = lrp_model.s[0]
     test_results_best[BEST_EPOCH][test_patient_ids[sel_idx]]["imp"] = df.copy()
+    
+    if sel_idx % 500 == 0:
+        print(f'{sel_idx} of {TOTAL_EXAMPLES}')
 
 end = time.time()
 mins, secs = epoch_time(start, end)

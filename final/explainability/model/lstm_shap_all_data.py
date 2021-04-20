@@ -67,13 +67,12 @@ PARAMS_PATH = (
 
 
 BEST_EPOCH = 2
-EARLY_STOPPING_NUM = 1  # For early stopping
 
 TARGET_COLNAME = "label"
 UID_COLNAME = "patient_id"
 TARGET_VALUE = "1"
 
-DATA_SPLIT = 'val'
+DATA_SPLIT = 'test'
 TOTAL_EXAMPLES = 7000
 
 # Results path the val/test data
@@ -257,9 +256,9 @@ for idx, pid in enumerate(all_patients):
     results_best[BEST_EPOCH][pid]["imp"] = df.copy()
     
     if idx % 500 == 0:
-        print(f'idx of {TOTAL_EXAMPLES}')
+        print(f'{idx} of {TOTAL_EXAMPLES}')
 
-os.makedirs(os.path.dirname(SPLIT_RESULTS_PATH))
+os.makedirs(os.path.dirname(SPLIT_RESULTS_PATH), exist_ok=True)
 with open(SPLIT_RESULTS_PATH, 'wb') as fp:
     pickle.dump(results_best, fp)
 print("Successfully Completed!")

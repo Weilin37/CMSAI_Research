@@ -1,3 +1,9 @@
+# Adopted from: https://github.com/BoulderDS/feature-importance
+
+"""
+The module creates functions for computing SHAP scores for deep-learning based models (LSTM, etc.)
+"""
+
 import numpy as np
 import warnings
 import shap
