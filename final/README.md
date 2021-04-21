@@ -5,7 +5,7 @@ It is organized in two different but similar directories:
 * [competition/](competition/): Contains all the code used during the CMSAI challenge on predicting adverse events and hospital readmissions from claims data. 
     * [competition/data/](competition/data/): contains codes related to data preparation and preprocessing
     * [competition/model/](competition/model/): contain codes related to models development (XGBoost, LSTM, Transformer)
-* [explainability/](explainability/): stores the code related not only to models development (XGBoost & Attention-based LSTM) but also to computing feature importances using different explainability methods (SHAP, LRP, Attention, etc.). You can read [this conference paper](link/here/) to get more insights about this work.
+* [explainability/](explainability/): stores the code related not only to models development (XGBoost & Attention-based LSTM) but also to computing feature importances using different explainability methods (SHAP, LRP, Attention, etc.). You can read this [conference paper](link/here/) to get more insights about this work.
     * [explainability//data/](explainability//data/): contains codes related to data preparation and preprocessing
     * [explainability//model/](explainability//model/): contain codes related to models development & computing the feature importances.
 
