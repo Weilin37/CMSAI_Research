@@ -66,10 +66,18 @@ def copy_data_to_s3(local_data_dir, s3_data_dir, splits=["train", "val", "test"]
         command = "aws s3 cp --quiet {} {}".format(local_path, s3_path)
         os.system(command)
     print("Success!")
-    
+
 
 def prepare_data(
-    input_path, out_one_hot_path, out_data_path, seq_len, target_colname, tokens, s3_dir, use_freq=False, copy_s3=False
+    input_path,
+    out_one_hot_path,
+    out_data_path,
+    seq_len,
+    target_colname,
+    tokens,
+    s3_dir,
+    use_freq=False,
+    copy_s3=False,
 ):
     """Prepare data for xgboost training."""
     df = pd.read_csv(input_path)
@@ -93,9 +101,20 @@ def prepare_data(
         os.system(command)
     print("Sucess!")
 
-    
-def train_model(row_params, container, execution_role, instance_count, instance_type, output_path, 
-                sagemaker_session, eval_metric, objective, scale_pos_weight, data_channels):
+
+def train_model(
+    row_params,
+    container,
+    execution_role,
+    instance_count,
+    instance_type,
+    output_path,
+    sagemaker_session,
+    eval_metric,
+    objective,
+    scale_pos_weight,
+    data_channels,
+):
     """
     Train a model based on a given data and xgboost params.
     Args:
@@ -117,27 +136,31 @@ def train_model(row_params, container, execution_role, instance_count, instance_
         Output model s3 path
     """
     params = dict(row_params[:12])
-    #Convert to int datatype to be compatible with the expectation
-    params['gamma'] = int(params['gamma'])
-    params['max_delta_step'] = int(params['max_delta_step'])
-    params['max_depth'] = int(params['max_depth'])
-    params['num_round'] = int(params['num_round'])
-    xgb_model = sagemaker.estimator.Estimator(container,
-                                        execution_role, 
-                                        instance_count=instance_count, 
-                                        instance_type=instance_type,
-                                        output_path=output_path,
-                                        sagemaker_session=sagemaker_session)
-    
-    xgb_model.set_hyperparameters(eval_metric=eval_metric,
-                            objective=objective,
-                            scale_pos_weight=scale_pos_weight, #For class imbalance
-                            **params)
-    
+    # Convert to int datatype to be compatible with the expectation
+    params["gamma"] = int(params["gamma"])
+    params["max_delta_step"] = int(params["max_delta_step"])
+    params["max_depth"] = int(params["max_depth"])
+    params["num_round"] = int(params["num_round"])
+    xgb_model = sagemaker.estimator.Estimator(
+        container,
+        execution_role,
+        instance_count=instance_count,
+        instance_type=instance_type,
+        output_path=output_path,
+        sagemaker_session=sagemaker_session,
+    )
+
+    xgb_model.set_hyperparameters(
+        eval_metric=eval_metric,
+        objective=objective,
+        scale_pos_weight=scale_pos_weight,  # For class imbalance
+        **params,
+    )
+
     xgb_model.fit(inputs=data_channels)
-    
+
     job_name = xgb_model._current_job_name
-    s3_model_path = os.path.join(output_path, job_name, 'output/model.tar.gz')
+    s3_model_path = os.path.join(output_path, job_name, "output/model.tar.gz")
     return s3_model_path
 
 
@@ -186,7 +209,7 @@ def train_hpo(
         sagemaker_session=sagemaker_session,
     )
 
-    #Well-tuned parameters    
+    # Well-tuned parameters
     xgb_model.set_hyperparameters(
         eval_metric=eval_metric,
         objective=objective,
@@ -194,11 +217,11 @@ def train_hpo(
         eta=0.3,
         alpha=0.2,
         max_depth=7,
-        num_round=100, #number of estimators/trees
+        num_round=100,  # number of estimators/trees
         colsample_bytree=0.35,
         early_stopping_rounds=5,
     )
-    
+
     tuner = HyperparameterTuner(
         xgb_model,
         objective_metric_name,
@@ -288,7 +311,7 @@ def copy_model_from_s3(s3_model_path, local_model_dir):
     return output_path
 
 
-def load_model(gz_model_path, remove=True, model_name='xgb'):
+def load_model(gz_model_path, remove=True, model_name="xgb"):
     """
     Loads xgboost trained model from disk
     Args:
@@ -296,11 +319,11 @@ def load_model(gz_model_path, remove=True, model_name='xgb'):
     Returns:
         xgboost: Xgboost model object
     """
-    if model_name == 'rf':
+    if model_name == "rf":
         "If model is random forest..."
         model = pickle.load(open(gz_model_path, "rb"))
         return model
-    
+
     model_dir = os.path.dirname(gz_model_path)
     model_path = os.path.join(model_dir, "xgboost-model")
 
@@ -315,17 +338,18 @@ def load_model(gz_model_path, remove=True, model_name='xgb'):
     if remove:
         shutil.rmtree(model_dir)
     else:
-        os.remove(model_path) #Remove only the extracted file
+        os.remove(model_path)  # Remove only the extracted file
 
     return model
 
+
 def get_valid_tokens(df, seq_len):
     """Get list of tokens."""
-    feature_cols = [str(i) for i in range(seq_len-1, -1, -1)]
+    feature_cols = [str(i) for i in range(seq_len - 1, -1, -1)]
     tokens = list(set(df[feature_cols].values.flatten().tolist()))
-    pad = '<pad>'
+    pad = "<pad>"
     if pad in tokens:
-        tokens.remove('<pad>')
+        tokens.remove("<pad>")
     return tokens
 
 
@@ -336,13 +360,9 @@ def get_best_model_info(df):
     return best_df_row
 
 
-
 #### Additional
 def load_xgb_classifier(model_path, model_params):
     """Load XGBClassifier model from saved Booster model."""
     xgb_model = xgb.XGBClassifier(**model_params)
     xgb_model._Booster = utils.load_pickle(model_path)
     return xgb_model
-
-
-

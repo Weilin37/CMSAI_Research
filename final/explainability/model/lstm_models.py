@@ -18,8 +18,8 @@ class SimpleLSTM(nn.Module):
         use_gpu=True,
         pad_idx=0,
         dropout=None,
-        init_type='zero',
-        linear_bias=True
+        init_type="zero",
+        linear_bias=True,
     ):
         super(SimpleLSTM, self).__init__()
 
@@ -70,11 +70,12 @@ class SimpleLSTM(nn.Module):
             )
 
         self.pred_layer = (
-            nn.Linear(hidden_dim * 2, 1, bias=linear_bias) 
-            if bidi else nn.Linear(hidden_dim, 1, bias=linear_bias)
+            nn.Linear(hidden_dim * 2, 1, bias=linear_bias)
+            if bidi
+            else nn.Linear(hidden_dim, 1, bias=linear_bias)
         )
         self.linear_bias = linear_bias
-        
+
         self.dpt = nn.Dropout(dropout) if dropout is not None else dropout
         self.init_weights()
 

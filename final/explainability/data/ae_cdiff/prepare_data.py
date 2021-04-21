@@ -4,7 +4,7 @@
 # # Data Preparation
 # **Author: Tesfagabir Meharizghi *(Adopted from Lin Lee Notebook)*<br>
 # Last Updated: 02/12/2021**
-# 
+#
 # Notebook for prepares and splits the AE data with only one target variable:
 # - Target: d_00845 for C.Diff Infection (ICD-9 code C.Diff is  008.45)
 # - C.Diff is selected because main events/causes are relatively well known so that the features importances predicted from different algorithms and models could be compared with the ground truth
@@ -25,7 +25,6 @@
 
 
 # In[2]:
-
 
 
 # In[3]:
@@ -161,7 +160,7 @@ def downsample(df0, label):
 
 def split_data(df, test_size, label, output_dir, n_events=1000):
     """Split data into train/val/test sets. test_size is the fraction of val/test sets"""
-    feature_names = [str(x) for x in range(n_events - 1, -1, -1)] + ['patient_id']
+    feature_names = [str(x) for x in range(n_events - 1, -1, -1)] + ["patient_id"]
     x_train, x_val_test, y_train, y_val_test = train_test_split(
         df[feature_names],
         df[label],
@@ -186,7 +185,7 @@ def split_data(df, test_size, label, output_dir, n_events=1000):
 # In[ ]:
 
 
-NROWS = None 
+NROWS = None
 
 N_DAYS = 365  # Number of input days
 N_EVENTS = 1000  # Output number of events
@@ -209,7 +208,7 @@ os.makedirs(OUTPUT_ORIGINAL_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DOWNSAMPLED_DIR, exist_ok=True)
 
 df_all = None
-#df_down_all = None
+# df_down_all = None
 for i in range(1, 7):
     MONTH = f"2011{i:02}01"
     print(f"Processing data for Month: {MONTH}....")
@@ -217,27 +216,27 @@ for i in range(1, 7):
     IN_FNAME = f"ae_patients_365_{MONTH}.csv"
     OUT_FNAME = f"{MONTH}.csv"
 
-    #raw_data_path = os.path.join(RAW_DATA_DIR, IN_FNAME)
+    # raw_data_path = os.path.join(RAW_DATA_DIR, IN_FNAME)
     flat_data_path = os.path.join(OUTPUT_ORIGINAL_DIR, OUT_FNAME)
     flat_downsampled_path = os.path.join(OUTPUT_DOWNSAMPLED_DIR, OUT_FNAME)
 
-    #df_raw = pd.read_csv(raw_data_path, low_memory=False, nrows=NROWS)
+    # df_raw = pd.read_csv(raw_data_path, low_memory=False, nrows=NROWS)
 
-    #df_flat = get_flat_df(df_raw, X_INPUT_LST, COPY_LIST, N_EVENTS)
+    # df_flat = get_flat_df(df_raw, X_INPUT_LST, COPY_LIST, N_EVENTS)
 
     df_flat = pd.read_csv(flat_data_path)
     print(f"Flat Shape = {df_flat.shape}")
     df_down = pd.read_csv(flat_downsampled_path)
     print(f"Downsampled Shape = {df_down.shape}")
-    
-    #df_down = pd.read_csv(flat_downsampled_path)
-    #print(f"Downsampled Shape = {df_down.shape}")
-    #df_down = downsample(df_flat, LABEL)
-    #print(f"Flat Shape = {df_flat.shape}, Downsampled Shape = {df_down.shape}")
+
+    # df_down = pd.read_csv(flat_downsampled_path)
+    # print(f"Downsampled Shape = {df_down.shape}")
+    # df_down = downsample(df_flat, LABEL)
+    # print(f"Flat Shape = {df_flat.shape}, Downsampled Shape = {df_down.shape}")
 
     # Save the data
-    #df_flat.to_csv(flat_data_path, index=False)
-    #df_down.to_csv(flat_downsampled_path, index=False)
+    # df_flat.to_csv(flat_data_path, index=False)
+    # df_down.to_csv(flat_downsampled_path, index=False)
 
     # Split data
     output_dir = os.path.join(OUTPUT_ORIGINAL_DIR, f"splits/{MONTH}/")
@@ -249,41 +248,41 @@ for i in range(1, 7):
     _ = split_data(df_down, SPLIT_TEST_SIZE, LABEL, output_dir, n_events=N_EVENTS)
 
     # Combine data
-    #df_flat[UID_COLUMN] = df_flat[UID_COLUMN] + f"_{MONTH}"
-    #df_down[UID_COLUMN] = df_down[UID_COLUMN] + f"_{MONTH}"
-    #if df_all is None:
-    #if df_down_all is None:
-        #df_all = df_flat.copy()
-        #df_down_all = df_down.copy()
-    #else:
-        #df_all = pd.concat([df_all, df_flat], axis=0)
-        #df_down_all = pd.concat([df_down_all, df_down], axis=0)
-    #del df_flat
-    #del df_raw, df_flat, df_down
+    # df_flat[UID_COLUMN] = df_flat[UID_COLUMN] + f"_{MONTH}"
+    # df_down[UID_COLUMN] = df_down[UID_COLUMN] + f"_{MONTH}"
+    # if df_all is None:
+    # if df_down_all is None:
+    # df_all = df_flat.copy()
+    # df_down_all = df_down.copy()
+    # else:
+    # df_all = pd.concat([df_all, df_flat], axis=0)
+    # df_down_all = pd.concat([df_down_all, df_down], axis=0)
+    # del df_flat
+    # del df_raw, df_flat, df_down
     print("*" * 50)
 
 all_fname = "all.csv"
-#all_data_path = os.path.join(OUTPUT_ORIGINAL_DIR, all_fname)
+# all_data_path = os.path.join(OUTPUT_ORIGINAL_DIR, all_fname)
 all_down_data_path = os.path.join(OUTPUT_DOWNSAMPLED_DIR, all_fname)
 
 # Shuffle dataset
-#df_all = df_all.sample(frac=1)
-#df_down_all = df_down_all.sample(frac=1)
-#print("all_flat_data shape: ", df_all.shape)
+# df_all = df_all.sample(frac=1)
+# df_down_all = df_down_all.sample(frac=1)
+# print("all_flat_data shape: ", df_all.shape)
 
 df_down_all = pd.read_csv(all_down_data_path)
 print("all_down_data shape: ", df_down_all.shape)
 
 # Split data
-#output_dir = os.path.join(OUTPUT_ORIGINAL_DIR, "splits/all")
-#os.makedirs(output_dir, exist_ok=True)
-#_ = split_data(df_all, SPLIT_TEST_SIZE, LABEL, output_dir, n_events=N_EVENTS)
+# output_dir = os.path.join(OUTPUT_ORIGINAL_DIR, "splits/all")
+# os.makedirs(output_dir, exist_ok=True)
+# _ = split_data(df_all, SPLIT_TEST_SIZE, LABEL, output_dir, n_events=N_EVENTS)
 
 output_dir = os.path.join(OUTPUT_DOWNSAMPLED_DIR, "splits/all")
 os.makedirs(output_dir, exist_ok=True)
 _ = split_data(df_down_all, SPLIT_TEST_SIZE, LABEL, output_dir, n_events=N_EVENTS)
 
 # Save data
-#df_all.to_csv(all_data_path, index=False)
-#df_down_all.to_csv(all_down_data_path, index=False)
+# df_all.to_csv(all_data_path, index=False)
+# df_down_all.to_csv(all_down_data_path, index=False)
 print("SUCCESS!")

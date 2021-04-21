@@ -98,7 +98,9 @@ def get_lstm_data(dataloader, n_examples, positive_only=False, is_random=False):
     return data
 
 
-def get_all_lstm_shap(dataloader, seq_len, model, explainer, positive_only=False, n_test=None):
+def get_all_lstm_shap(
+    dataloader, seq_len, model, explainer, positive_only=False, n_test=None
+):
     """
     Get all shap values.
     Args:
@@ -119,7 +121,7 @@ def get_all_lstm_shap(dataloader, seq_len, model, explainer, positive_only=False
             (test_ids, test_labels, test_idxes) = ([uid], [lab], [idxes])
             test_data, test_masks = model.get_all_ids_masks(test_idxes, seq_len)
             lstm_shap_values = explainer.shap_values(test_data, test_masks)
-            
+
             df_shap, patient_id = get_per_patient_shap(
                 lstm_shap_values, (test_ids, test_labels, test_idxes), model.vocab, 0
             )
@@ -134,7 +136,7 @@ def get_all_lstm_shap(dataloader, seq_len, model, explainer, positive_only=False
             features.append(events)
             scores.append(vals[:])
             patients.append(patient_id)
-            
+
             i += 1
             if (n_test is not None) and (i >= n_test):
                 stop = True
@@ -144,9 +146,9 @@ def get_all_lstm_shap(dataloader, seq_len, model, explainer, positive_only=False
         print(patient_id)
         if stop:
             break
-            
-    
+
     return (features, scores, patients)
+
 
 def get_lstm_features_and_shap_scores(
     model,
@@ -160,39 +162,41 @@ def get_lstm_features_and_shap_scores(
     background_negative_only=False,
     test_positive_only=False,
     is_test_random=False,
-    output_explainer=False
+    output_explainer=False,
 ):
     """Get all features and shape importance scores for each example in te_dataloader."""
     # Get background
-    print('Getting background')
+    print("Getting background")
     background = get_lstm_background(
         tr_dataloader, n_background=n_background, negative_only=background_negative_only
     )
     # background = next(iter(tr_dataloader))
     background_ids, background_labels, background_idxes = background
-    print('Done getting background')
-    print(os.system('echo nvidia-smi'))
-    print('Getting get_all_ids_masks')
+    print("Done getting background")
+    print(os.system("echo nvidia-smi"))
+    print("Getting get_all_ids_masks")
     bg_data, bg_masks = model.get_all_ids_masks(background_idxes, seq_len)
-    print('Done get_all_ids_masks')
-    print(os.system('echo nvidia-smi'))
-    print('Getting CustomPyTorchDeepIDExplainer')
+    print("Done get_all_ids_masks")
+    print(os.system("echo nvidia-smi"))
+    print("Getting CustomPyTorchDeepIDExplainer")
     explainer = deep_id_pytorch.CustomPyTorchDeepIDExplainer(
         model, bg_data, bg_masks, gpu_memory_efficient=True
     )
-    print('Done get_all_ids_masks')
-    print(os.system('echo nvidia-smi'))
+    print("Done get_all_ids_masks")
+    print(os.system("echo nvidia-smi"))
 
     model.train()  # in case that shap complains that autograd cannot be called
 
     shap_values = None
     if (n_test is None) or (n_test > 32):
-        print('Getting shap values (1)')
-        shap_values = get_all_lstm_shap(te_dataloader, seq_len, model, explainer, test_positive_only, n_test)
-        print('Done getting shap values (1)')
-        print(os.system('echo nvidia-smi'))
+        print("Getting shap values (1)")
+        shap_values = get_all_lstm_shap(
+            te_dataloader, seq_len, model, explainer, test_positive_only, n_test
+        )
+        print("Done getting shap values (1)")
+        print(os.system("echo nvidia-smi"))
     else:
-        print('Getting shap values (2)')
+        print("Getting shap values (2)")
         # test = next(iter(te_dataloader))
         test = get_lstm_data(
             te_dataloader,
@@ -225,10 +229,9 @@ def get_lstm_features_and_shap_scores(
             features.append(events)
             scores.append(vals[:])
             patients.append(patient_id)
-        print('Done getting shap values (2)')
+        print("Done getting shap values (2)")
 
-
-        #For explainer
+        # For explainer
         shap_values = (features, scores, patients)
 
     if save_output:
@@ -335,7 +338,9 @@ def show_heatmap(models, data, k, fig_size, vmin, vmax):
     """Display heatmap."""
     df = pd.DataFrame(data)
     fig, ax = plt.subplots(figsize=fig_size)
-    sns_plot = sns.heatmap(df, annot=True, cmap="PuBu", vmin=vmin, vmax=vmax, linewidths=.5)
+    sns_plot = sns.heatmap(
+        df, annot=True, cmap="PuBu", vmin=vmin, vmax=vmax, linewidths=0.5
+    )
     plt.xticks(np.arange(len(models)) + 0.5, tuple(models))
     plt.yticks(np.arange(len(models)) + 0.5, tuple(models), va="center")
     fig = sns_plot.get_figure()
@@ -353,7 +358,9 @@ def generate_heatmap_data(all_features_scores, k, absolute=True):
         features_scores_a = all_features_scores[i]
         for j in range(num_models):
             features_scores_b = all_features_scores[j]
-            total = total_jacc(features_scores_a, features_scores_b, k, absolute=absolute)
+            total = total_jacc(
+                features_scores_a, features_scores_b, k, absolute=absolute
+            )
             avg_jacc = np.mean(total)
             tmp.append(avg_jacc)
         data.append(tmp)
@@ -372,7 +379,9 @@ def generate_k_heatmaps(all_features_scores, models, k_list, absolute=True):
         generate_heatmap(all_features_scores, models, k, absolute=absolute)
 
 
-def get_model_intersection_similarity(all_features_scores, suffices=["_H", "_A"], absolute=True, df_one_hot=None):
+def get_model_intersection_similarity(
+    all_features_scores, suffices=["_H", "_A"], absolute=True, df_one_hot=None
+):
     """Get similarity between the ground truth & model predicted helping events (Adverse and Helper)
     Note: df_one_hot is the one-hot encoding of the input data (used only in xgb).
     """
@@ -399,26 +408,31 @@ def get_model_intersection_similarity(all_features_scores, suffices=["_H", "_A"]
         if df_one_hot is not None:
             row_one_hot = df_one_hot.iloc[i]
 
-        gt_helpers = _get_helping_features(row_features, suffices, one_hot= row_one_hot)
+        gt_helpers = _get_helping_features(row_features, suffices, one_hot=row_one_hot)
         if len(gt_helpers) == 0:
             sim = -1
         else:
-            dict_features_scores = create_dict_features_scores(row_features, row_scores, absolute)
+            dict_features_scores = create_dict_features_scores(
+                row_features, row_scores, absolute
+            )
             top_features_scores = top_k(dict_features_scores, len(gt_helpers))
             top_features = top_features_scores[0]
             pred_helpers = _get_helping_features(top_features, suffices)
-            sim = float(len(set(pred_helpers).intersection(gt_helpers))) / len(gt_helpers)
+            sim = float(len(set(pred_helpers).intersection(gt_helpers))) / len(
+                gt_helpers
+            )
         similarities.append(sim)
     return sum(similarities) / len(similarities), similarities
 
-def get_model_paths(model_save_dir, model_name='lstm', sort=True):
+
+def get_model_paths(model_save_dir, model_name="lstm", sort=True):
     """Get list models paths in sorted order if needed."""
-    if model_name=='lstm':
-        model_save_dir = os.path.dirname(model_save_dir)        
+    if model_name == "lstm":
+        model_save_dir = os.path.dirname(model_save_dir)
     fnames = os.listdir(model_save_dir)
     fnames = [fname for fname in fnames if fname.endswith(".pkl")]
     if sort:
-        fnames.sort(key=lambda f: int(re.sub("\D", "", f)))  
+        fnames.sort(key=lambda f: int(re.sub("\D", "", f)))
     model_paths = [os.path.join(model_save_dir, fname) for fname in fnames]
     return model_paths
 
@@ -476,11 +490,11 @@ def plot_global_feature_importance(feature_importances, max_features=None, title
         df = df.sort_values(0, ascending=False)
         df = df.iloc[:max_features]
         df = df.sort_values(0, ascending=True)
-    df.plot(kind='barh', figsize=(10, 15), legend=False, colormap='winter')
+    df.plot(kind="barh", figsize=(10, 15), legend=False, colormap="winter")
     if title is not None:
         plt.title(title)
     plt.show()
-    #return df
+    # return df
 
 
 def get_epoch_number_from_path(model_path):
@@ -520,6 +534,7 @@ def get_wtau(x, y):
     """Get tau scores for two sets."""
     return stats.weightedtau(x, y, rank=None)[0]
 
+
 def ret_label_df(df, colname, dataset):
     """Get data for plotting."""
     len_epoch = df.shape[0]
@@ -554,7 +569,7 @@ def glfass_single(cpu_model, background, test, seq_len, device):
     Single-thread function for Get Lstm Features And Shap Scores
     Called by get_lstm_features_and_shap_scores_mp
     """
-    #start_time = time.time()
+    # start_time = time.time()
 
     model = cpu_model.to(device)
 
@@ -739,34 +754,40 @@ def get_intersection_similarity(scores, tokens, freedom=0, is_synthetic=True):
         The intersection similarity score(float) or -1 if not GT tokens available
     """
     if is_synthetic:
-        gt_features = [feature for feature in tokens if not feature.endswith('_N')]
+        gt_features = [feature for feature in tokens if not feature.endswith("_N")]
     else:
-        gt_features = [feature for feature in tokens if feature.endswith('_rf')]
+        gt_features = [feature for feature in tokens if feature.endswith("_rf")]
     n_gt = len(gt_features)
     if n_gt > 0:
         dict_features_scores = create_dict_features_scores(
             tokens, scores, absolute=True
         )
-        top_features_scores = top_k(
-            dict_features_scores, len(gt_features)+freedom
-        )
+        top_features_scores = top_k(dict_features_scores, len(gt_features) + freedom)
         top_features = top_features_scores[0]
         if is_synthetic:
-            pred_features = [feature for feature in top_features if not feature.endswith('_N')]
+            pred_features = [
+                feature for feature in top_features if not feature.endswith("_N")
+            ]
         else:
-            pred_features = [feature for feature in top_features if feature.endswith('_rf')]
-        sim = len(set(pred_features).intersection(gt_features)) / float(n_gt+freedom)
+            pred_features = [
+                feature for feature in top_features if feature.endswith("_rf")
+            ]
+        sim = len(set(pred_features).intersection(gt_features)) / float(n_gt + freedom)
     else:
-        sim = -1    
+        sim = -1
     return sim
-    
 
-def get_all_intersection_similarity(all_scores, all_tokens, freedom=0, is_synthetic=True):
+
+def get_all_intersection_similarity(
+    all_scores, all_tokens, freedom=0, is_synthetic=True
+):
     """Gets intersection similarity of all patients based on their shap scores and tokens/features"""
     sims = []
     for i, features in enumerate(all_tokens):
         scores = all_scores[i]
-        sim = get_intersection_similarity(scores, features, freedom=freedom, is_synthetic=is_synthetic)
+        sim = get_intersection_similarity(
+            scores, features, freedom=freedom, is_synthetic=is_synthetic
+        )
         sims.append(sim)
     sims2 = [sim for sim in sims if sim != -1]
     avg_sim = sum(sims2) / len(sims2)
@@ -802,7 +823,15 @@ def save_xgb_results(patients, features, shap_scores, y_true, y_pred, output_pat
     return results
 
 
-def compute_xgb_shap(xgb_model, df_train0, df_test0, uid_colname, target_colname, explainer=None, negative_only=False):
+def compute_xgb_shap(
+    xgb_model,
+    df_train0,
+    df_test0,
+    uid_colname,
+    target_colname,
+    explainer=None,
+    negative_only=False,
+):
     """Compute shap of a dataset for a given xgb model."""
     df_train = df_train0.copy()
     df_test = df_test0.copy()
@@ -854,4 +883,3 @@ def get_xgb_shap_values_and_features(all_shap):
         all_scores.append(shap_info["xgb_shap"])
     all_scores = np.array(all_scores)
     return all_features, all_scores
-

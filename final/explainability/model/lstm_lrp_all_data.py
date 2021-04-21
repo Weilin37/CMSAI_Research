@@ -52,21 +52,17 @@ VALID_DATA_PATH = f"../data/synthetic/sample_dataset/{DATA_TYPE}/{SEQ_LEN}/val.c
 TEST_DATA_PATH = f"../data/synthetic/sample_dataset/{DATA_TYPE}/{SEQ_LEN}/test.csv"
 VOCAB_PATH = f"../data/synthetic/sample_dataset/{DATA_TYPE}/{SEQ_LEN}/vocab.pkl"
 
-MODEL_SAVE_PATH_PATTERN = (
-    f"./output/synthetic/{DATA_TYPE}/{SEQ_LEN}/{MODEL_NAME}/model_weights/model_{'{}'}.pkl"
-)
+MODEL_SAVE_PATH_PATTERN = f"./output/synthetic/{DATA_TYPE}/{SEQ_LEN}/{MODEL_NAME}/model_weights/model_{'{}'}.pkl"
 IMP_SAVE_DIR_PATTERN = f"./output/synthetic/{DATA_TYPE}/{SEQ_LEN}/{MODEL_NAME}/importances/{'{}'}_imp_{'{}'}.pkl"  # Feature importance values path for a given dataset split
 
 OUTPUT_RESULTS_PATH = (
     f"./output/synthetic/{DATA_TYPE}/{SEQ_LEN}/{MODEL_NAME}/train_results/results.csv"
 )
-PARAMS_PATH = (
-    f"./output/synthetic/{DATA_TYPE}/{SEQ_LEN}/{MODEL_NAME}/train_results/model_params.json"
-)
+PARAMS_PATH = f"./output/synthetic/{DATA_TYPE}/{SEQ_LEN}/{MODEL_NAME}/train_results/model_params.json"
 
 
 BEST_EPOCH = 2
-TOTAL_EXAMPLES = 7000 #Total patients in val/test data
+TOTAL_EXAMPLES = 7000  # Total patients in val/test data
 
 TARGET_COLNAME = "label"
 UID_COLNAME = "patient_id"
@@ -162,14 +158,18 @@ lstm_model_best.eval()
 lrp_model = LSTM_LRP_MultiLayer(lstm_model_best.cpu())
 
 # Get test/val data
-val_patient_ids, val_labels, val_idxed_text = get_eval_data(valid_dataloader, TOTAL_EXAMPLES)
+val_patient_ids, val_labels, val_idxed_text = get_eval_data(
+    valid_dataloader, TOTAL_EXAMPLES
+)
 
-test_patient_ids, test_labels, test_idxed_text = get_eval_data(test_dataloader, TOTAL_EXAMPLES)
+test_patient_ids, test_labels, test_idxed_text = get_eval_data(
+    test_dataloader, TOTAL_EXAMPLES
+)
 
 
 start = time.time()
 
-print('Processing validation data...')
+print("Processing validation data...")
 for sel_idx in range(len(val_labels)):
     one_text = [
         int(token.numpy())
@@ -197,10 +197,10 @@ for sel_idx in range(len(val_labels)):
     ]
     valid_results_best[BEST_EPOCH][val_patient_ids[sel_idx]]["pred"] = lrp_model.s[0]
     valid_results_best[BEST_EPOCH][val_patient_ids[sel_idx]]["imp"] = df.copy()
-    
+
     if sel_idx % 500 == 0:
-        print(f'{sel_idx} of {TOTAL_EXAMPLES}')
-            
+        print(f"{sel_idx} of {TOTAL_EXAMPLES}")
+
 end = time.time()
 mins, secs = epoch_time(start, end)
 print(f"Total Time: {mins}min: {secs}sec")
@@ -212,7 +212,7 @@ valid_results_best[BEST_EPOCH][val_patient_ids[sel_idx]]
 with open(VAL_RESULTS_PATH, "wb") as fp:
     pickle.dump(valid_results_best, fp)
 
-print('Processing test data...')
+print("Processing test data...")
 start = time.time()
 for sel_idx in range(len(test_labels)):
     one_text = [
@@ -241,9 +241,9 @@ for sel_idx in range(len(test_labels)):
     ]
     test_results_best[BEST_EPOCH][test_patient_ids[sel_idx]]["pred"] = lrp_model.s[0]
     test_results_best[BEST_EPOCH][test_patient_ids[sel_idx]]["imp"] = df.copy()
-    
+
     if sel_idx % 500 == 0:
-        print(f'{sel_idx} of {TOTAL_EXAMPLES}')
+        print(f"{sel_idx} of {TOTAL_EXAMPLES}")
 
 end = time.time()
 mins, secs = epoch_time(start, end)
@@ -253,7 +253,4 @@ print(f"Total Time: {mins}min: {secs}sec")
 with open(TEST_RESULTS_PATH, "wb") as fp:
     pickle.dump(test_results_best, fp)
 
-print('Success!')
-
-
-
+print("Success!")

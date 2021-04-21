@@ -35,6 +35,7 @@ def get_uid(uid_len):
     """
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=uid_len))
 
+
 def get_a_sequence(seq_len, tokens, token_mappings, seq_type):
     """
     Generate sequence of events for a single patient.
@@ -108,18 +109,15 @@ def get_sequences(
             sequences.append(sequence)
     random.shuffle(sequences)
 
-    columns = [uid_colname] + [str(x) for x in range(seq_len - 1, -1, -1)] + ['sequence_type']
+    columns = (
+        [uid_colname] + [str(x) for x in range(seq_len - 1, -1, -1)] + ["sequence_type"]
+    )
     df = pd.DataFrame(sequences, columns=columns)
     df.set_index(uid_colname, inplace=True)
     return df
 
 
-def generate_dataset(df_sequences,
-                     seq_len,
-                     seq_types,
-                     seq_base_probs,
-                     data_type
-                    ):
+def generate_dataset(df_sequences, seq_len, seq_types, seq_base_probs, data_type):
     """
     Generate synthetic dataset (event/sequence based).
         seq_len(int): Length of the sequence of events
@@ -134,6 +132,7 @@ def generate_dataset(df_sequences,
     Returns:
         Sequences of events and labels in dataframe format
     """
+
     def get_indices(seq0):
         """
         Get location/index of each non-noise taken in the given sequence of events.
@@ -144,7 +143,7 @@ def generate_dataset(df_sequences,
         seq.reverse()
         idx_seq = {}
         for idx, token in enumerate(seq):
-            if (not token.endswith('_N')) and token != '<pad>':
+            if (not token.endswith("_N")) and token != "<pad>":
                 idx_seq[idx] = token
         return idx_seq
 
@@ -160,8 +159,8 @@ def generate_dataset(df_sequences,
         Returns:
             List of the output probability and label
         """
-        feature_names = [str(i) for i in range(seq_len-1, -1, -1)]
-        seq_type = row['sequence_type']
+        feature_names = [str(i) for i in range(seq_len - 1, -1, -1)]
+        seq_type = row["sequence_type"]
         idx = seq_types.index(seq_type)
         base_proba = base_probs[idx]
         seq = row[feature_names].tolist()
@@ -172,16 +171,18 @@ def generate_dataset(df_sequences,
 
     df = df_sequences.copy()
 
-    results = df.apply(get_patient_proba, axis=1, args=(seq_len, seq_types, seq_base_probs, data_type))
+    results = df.apply(
+        get_patient_proba, axis=1, args=(seq_len, seq_types, seq_base_probs, data_type)
+    )
     probs = [results.iloc[i][0] for i in range(len(results))]
     labels = [results.iloc[i][1] for i in range(len(results))]
-    df['proba'] = probs
-    df['label'] = labels
+    df["proba"] = probs
+    df["label"] = labels
 
     return df
 
 
-def get_proba(seq, seq_len, base_proba, data_type='event'):
+def get_proba(seq, seq_len, base_proba, data_type="event"):
     """
     Compute the sequence's probability of being a positive label.
     Args:
@@ -190,18 +191,18 @@ def get_proba(seq, seq_len, base_proba, data_type='event'):
         base_proba(float): Base probability
         data_type(str): Dataset type (event/sequence)
     Returns:
-        Output Probability    
+        Output Probability
     """
-    #If event-based...
-    if data_type == 'event':
+    # If event-based...
+    if data_type == "event":
         return base_proba
-    
-    #If sequence-based...
+
+    # If sequence-based...
     if seq_len == 30:
         multiplier = 0.5
     else:
         multiplier = 0.05
-        
+
     a = 0.2  # Constant for Adverse
     h = 0.4  # Constant for helper
     u = 0.75  # Constant for unhelper
@@ -209,13 +210,13 @@ def get_proba(seq, seq_len, base_proba, data_type='event'):
     prob = 0
     for ts in seq:
         event = seq[ts]
-        if event.endswith('_A'): 
-            prob += math.exp(-(a * int(ts) * multiplier)) 
-        elif event.endswith('_H'):
+        if event.endswith("_A"):
+            prob += math.exp(-(a * int(ts) * multiplier))
+        elif event.endswith("_H"):
             prob += math.exp(-(h * int(ts) * multiplier))
-        elif event.endswith('_U'):
+        elif event.endswith("_U"):
             prob -= math.exp(-(u * int(ts) * multiplier))
-    prob = max(0.1,min(1, prob))
+    prob = max(0.1, min(1, prob))
     return round(prob, 4)
 
 

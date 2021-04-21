@@ -741,8 +741,8 @@ class LSTM_LRP_MultiLayer(nn.Module):
 
     def get_attn_values(self):
         return self.att_score
-    
-    
+
+
 def lrp_linear(hin, w, b, hout, Rout, bias_nb_units, eps, bias_factor=0.0, debug=False):
     """
     LRP for a linear layer with input dim D and output dim M.
@@ -785,4 +785,3 @@ def lrp_linear(hin, w, b, hout, Rout, bias_nb_units, eps, bias_factor=0.0, debug
     # -> can be used for sanity check
 
     return Rin
-

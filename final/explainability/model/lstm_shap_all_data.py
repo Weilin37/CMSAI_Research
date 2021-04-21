@@ -53,17 +53,13 @@ VALID_DATA_PATH = f"../data/synthetic/sample_dataset/{DATA_TYPE}/{SEQ_LEN}/val.c
 TEST_DATA_PATH = f"../data/synthetic/sample_dataset/{DATA_TYPE}/{SEQ_LEN}/test.csv"
 VOCAB_PATH = f"../data/synthetic/sample_dataset/{DATA_TYPE}/{SEQ_LEN}/vocab.pkl"
 
-MODEL_SAVE_PATH_PATTERN = (
-    f"./output/synthetic/{DATA_TYPE}/{SEQ_LEN}/{MODEL_NAME}/model_weights/model_{'{}'}.pkl"
-)
+MODEL_SAVE_PATH_PATTERN = f"./output/synthetic/{DATA_TYPE}/{SEQ_LEN}/{MODEL_NAME}/model_weights/model_{'{}'}.pkl"
 IMP_SAVE_DIR_PATTERN = f"./output/synthetic/{DATA_TYPE}/{SEQ_LEN}/{MODEL_NAME}/importances/{'{}'}_imp_{'{}'}.pkl"  # Feature importance values path for a given dataset split
 
 OUTPUT_RESULTS_PATH = (
     f"./output/synthetic/{DATA_TYPE}/{SEQ_LEN}/{MODEL_NAME}/train_results/results.csv"
 )
-PARAMS_PATH = (
-    f"./output/synthetic/{DATA_TYPE}/{SEQ_LEN}/{MODEL_NAME}/train_results/model_params.json"
-)
+PARAMS_PATH = f"./output/synthetic/{DATA_TYPE}/{SEQ_LEN}/{MODEL_NAME}/train_results/model_params.json"
 
 
 BEST_EPOCH = 2
@@ -72,26 +68,26 @@ TARGET_COLNAME = "label"
 UID_COLNAME = "patient_id"
 TARGET_VALUE = "1"
 
-DATA_SPLIT = 'test'
+DATA_SPLIT = "test"
 TOTAL_EXAMPLES = 7000
 
 # Results path the val/test data
 output_dir = os.path.dirname(IMP_SAVE_DIR_PATTERN)
 SPLIT_RESULTS_PATH = os.path.join(output_dir, f"{DATA_SPLIT}_all_shap_{BEST_EPOCH}.pkl")
 
-   
-def run_a_batch(start_idx, end_idx, lstm_model, tr_dataloader, patient_ids, labels, idxed_text):
+
+def run_a_batch(
+    start_idx, end_idx, lstm_model, tr_dataloader, patient_ids, labels, idxed_text
+):
     start = time.time()
-    (
-        features,
-        scores,
-        patients,
-    ) = get_lstm_features_and_shap_scores_mp(
+    (features, scores, patients,) = get_lstm_features_and_shap_scores_mp(
         lstm_model_best,
         tr_dataloader,
-        (patient_ids[start_idx:end_idx], 
-         labels[start_idx:end_idx], 
-         idxed_text[start_idx:end_idx]),
+        (
+            patient_ids[start_idx:end_idx],
+            labels[start_idx:end_idx],
+            idxed_text[start_idx:end_idx],
+        ),
         SEQ_LEN,
         "",
         save_output=False,
@@ -106,11 +102,8 @@ def run_a_batch(start_idx, end_idx, lstm_model, tr_dataloader, patient_ids, labe
     end = time.time()
     mins, secs = epoch_time(start, end)
     print(f"{end_idx} --> {mins}min: {secs}sec")
-    
-    
-    return (copy.deepcopy(features),
-            copy.deepcopy(scores),
-            copy.deepcopy(patients))
+
+    return (copy.deepcopy(features), copy.deepcopy(scores), copy.deepcopy(patients))
 
 
 # ### Load Vocab and Dataset
@@ -144,8 +137,7 @@ train_dataset, _ = build_lstm_dataset(
 )
 
 train_dataloader = DataLoader(
-    train_dataset, batch_size=MODEL_PARAMS["batch_size"], 
-    shuffle=True, num_workers=2
+    train_dataset, batch_size=MODEL_PARAMS["batch_size"], shuffle=True, num_workers=2
 )
 
 num_lim_per_epoch = 200
@@ -153,7 +145,7 @@ upper_lim = TOTAL_EXAMPLES
 start_idx = 0
 batch = list(range(num_lim_per_epoch, upper_lim + 1, num_lim_per_epoch))
 
-if DATA_SPLIT == 'val':
+if DATA_SPLIT == "val":
     valid_dataset, _ = build_lstm_dataset(
         VALID_DATA_PATH,
         min_freq=MODEL_PARAMS["min_freq"],
@@ -167,12 +159,14 @@ if DATA_SPLIT == 'val':
     )
 
     valid_dataloader = DataLoader(
-        valid_dataset, batch_size=MODEL_PARAMS["batch_size"], 
-        shuffle=False, num_workers=2
+        valid_dataset,
+        batch_size=MODEL_PARAMS["batch_size"],
+        shuffle=False,
+        num_workers=2,
     )
 
     patient_ids, labels, idxed_text = get_eval_data(valid_dataloader, upper_lim)
-    
+
 else:
     test_dataset, _ = build_lstm_dataset(
         TEST_DATA_PATH,
@@ -187,13 +181,15 @@ else:
     )
 
     test_dataloader = DataLoader(
-        test_dataset, batch_size=MODEL_PARAMS["batch_size"], 
-        shuffle=False, num_workers=2
+        test_dataset,
+        batch_size=MODEL_PARAMS["batch_size"],
+        shuffle=False,
+        num_workers=2,
     )
 
     patient_ids, labels, idxed_text = get_eval_data(test_dataloader, upper_lim)
 
-print(f'Processing {DATA_SPLIT} data...')
+print(f"Processing {DATA_SPLIT} data...")
 
 # ### Load Best Model
 
@@ -227,39 +223,42 @@ all_features = []
 all_scores = []
 all_patients = []
 for end_idx in batch:
-    (
-        features,
-        scores,
-        patients,
-    ) = run_a_batch(start_idx, end_idx, lstm_model_best, train_dataloader, patient_ids, labels, idxed_text)
+    (features, scores, patients,) = run_a_batch(
+        start_idx,
+        end_idx,
+        lstm_model_best,
+        train_dataloader,
+        patient_ids,
+        labels,
+        idxed_text,
+    )
     start_idx = end_idx
-    
+
     all_features = all_features + features
     all_scores = all_scores + scores
     all_patients = all_patients + patients
-    
+
     torch.cuda.empty_cache()
 
-#Create dictionary
+# Create dictionary
 for idx, pid in enumerate(all_patients):
     if pid not in results_best[BEST_EPOCH].keys():
         results_best[BEST_EPOCH][pid] = {}
-        
+
     if "imp" not in results_best[BEST_EPOCH][pid].keys():
         df = pd.DataFrame()
-        df['token'] = all_features[idx]
-        df['seq_idx'] = [x for x in range(len(all_features[idx]))]
+        df["token"] = all_features[idx]
+        df["seq_idx"] = [x for x in range(len(all_features[idx]))]
     else:
-        df = results_best[BEST_EPOCH][pid]["imp"]    
+        df = results_best[BEST_EPOCH][pid]["imp"]
     df["shap_scores"] = all_scores[idx]
-    
+
     results_best[BEST_EPOCH][pid]["imp"] = df.copy()
-    
+
     if idx % 500 == 0:
-        print(f'{idx} of {TOTAL_EXAMPLES}')
+        print(f"{idx} of {TOTAL_EXAMPLES}")
 
 os.makedirs(os.path.dirname(SPLIT_RESULTS_PATH), exist_ok=True)
-with open(SPLIT_RESULTS_PATH, 'wb') as fp:
+with open(SPLIT_RESULTS_PATH, "wb") as fp:
     pickle.dump(results_best, fp)
 print("Successfully Completed!")
-                            

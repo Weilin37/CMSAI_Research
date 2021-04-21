@@ -208,4 +208,3 @@ class AttNoHtLSTM(SimpleLSTM):
         pred = self.pred_layer(concat_out)
 
         return pred
-

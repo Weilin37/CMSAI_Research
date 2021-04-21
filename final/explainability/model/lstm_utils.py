@@ -153,7 +153,7 @@ def build_lstm_dataset(
 
             tokens = [tokens[idx] for idx in x_idxes]
             tokens = [t.strip().replace("\n", "") for t in tokens if valid_token(t)]
-            
+
             if not tokens:
                 line = f.readline()
                 continue
@@ -187,8 +187,8 @@ def build_lstm_dataset(
                 if counter[token] < min_freq:
                     continue
             else:
-                #Include all the risk factors as part of vocab
-                if (counter[token] < min_freq) and (not token.endswith('_rf')):
+                # Include all the risk factors as part of vocab
+                if (counter[token] < min_freq) and (not token.endswith("_rf")):
                     continue
 
             idx = len(vocab)
@@ -213,7 +213,9 @@ def epoch_time(start_time, end_time):
     return elapsed_mins, elapsed_secs
 
 
-def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False, device=None):
+def epoch_train_lstm(
+    model, dataloader, optimizer, criterion, test=0, clip=False, device=None
+):
     """
     Train model for an epoch, called by ModelProcess function
     detach_hidden is used to detach hidden state between batches,
@@ -226,7 +228,7 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False
         criterion : loss function
         optimizer : pytorch optimizer to be used during step
         clip (bool) : clip gradients if enabled
-        
+
     Returns:
     ----------
         tuple containing:
@@ -244,13 +246,13 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False
     prediction_scores = []
     if test:  # test function on small number of batches
         counter = 0
-        
+
     for idx, (ids, labels, idxed_text) in enumerate(dataloader):
 
-#         optimizer.zero_grad()
+        #         optimizer.zero_grad()
 
         labels = labels.type(torch.long)
-        
+
         if device is not None:
             idxed_text, labels = idxed_text.to(device), labels.to(device)
             model = model.to(device)
@@ -263,10 +265,10 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False
 
         loss = criterion(predictions, labels.type_as(predictions))
         loss.backward()
-        
+
         if clip:
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
-            #torch.nn.utils.clip_grad_norm_(model.parameters(), -0.5)
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), -0.5)
         optimizer.step()
         optimizer.zero_grad()
 
@@ -285,7 +287,7 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False
             if counter >= test:
                 break
             counter += 1
-        
+
     epoch_metric = roc_auc_score(
         order_labels, torch.sigmoid(torch.Tensor(prediction_scores))
     )
@@ -293,7 +295,9 @@ def epoch_train_lstm(model, dataloader, optimizer, criterion, test=0, clip=False
     return epoch_loss / len(dataloader), epoch_metric
 
 
-def epoch_val_lstm(model, dataloader, criterion, return_preds=False, test=0, device=None):
+def epoch_val_lstm(
+    model, dataloader, criterion, return_preds=False, test=0, device=None
+):
     """
     Evaluate model on a dataset
 
@@ -340,14 +344,14 @@ def epoch_val_lstm(model, dataloader, criterion, return_preds=False, test=0, dev
         for idx, (ids, labels, idxed_text) in enumerate(dataloader):
 
             labels = labels.type(torch.long)
-            
+
             if device is not None:
                 idxed_text, labels = idxed_text.to(device), labels.to(device)
             else:
                 idxed_text, labels = idxed_text.cuda(), labels.cuda()
 
             predictions = model(idxed_text)
-            #loss = criterion(predictions, labels.squeeze(1))
+            # loss = criterion(predictions, labels.squeeze(1))
             loss = criterion(predictions, labels.type_as(predictions))
             epoch_loss += loss.item()
 
@@ -368,12 +372,16 @@ def epoch_val_lstm(model, dataloader, criterion, return_preds=False, test=0, dev
     epoch_metric = roc_auc_score(
         order_labels, torch.sigmoid(torch.Tensor(prediction_scores))
     )
-    
+
     if return_preds:
-        return epoch_loss / len(dataloader), epoch_metric, order_labels, torch.sigmoid(torch.Tensor(prediction_scores))
+        return (
+            epoch_loss / len(dataloader),
+            epoch_metric,
+            order_labels,
+            torch.sigmoid(torch.Tensor(prediction_scores)),
+        )
 
     return epoch_loss / len(dataloader), epoch_metric
-
 
 
 ##### Additional functions.

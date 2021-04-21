@@ -7,12 +7,13 @@ from collections import Counter
 import torch
 from torchtext.vocab import Vocab
 
+
 def read_data(
     data_fp, drop_duplicates=False, check=True, y_target=None, uid=None, test=0
 ):
     """
     Function to read-in, check and process raw 365 training or test data
-    
+
     Arguments:
     ----------
         data_fp (str) : filepath to csv
@@ -25,11 +26,11 @@ def read_data(
                     column name of UID of dataset (usually patient_id + discharge_id)
         test (int) : default 0
                      if not zero, will read in test number of rows
-                    
+
     Returns:
     --------
         data_df (dataframe) : cleaned dataframe
-    
+
     """
     if not os.path.isfile(data_fp):
         raise Exception(f"Invalid data filepath: {data_fp}")
@@ -71,19 +72,19 @@ def remove_death(data_df, y_target, x_inputs, bad_word="death"):
     """
     Removes any rows in data that contains unwanted words, i.e. death
     in any of the x_input columns
-    
+
     Arguments:
     ----------
         data_df (dataframe) : data to process
         x_inputs (list) : list of input columns to consider when removing words
-        y_target (str) : column name of label 
+        y_target (str) : column name of label
         bad_word (str) : word used to decide which rows to remove
-        
+
     Returns:
     --------
         data_df_str (dataframe) : data with rows containing unwanted words removed
-                    
-    
+
+
     """
     data_df_str = data_df.astype(str)
     data_df_str[y_target] = data_df[y_target].astype(int).tolist()[:]
@@ -97,6 +98,7 @@ def remove_death(data_df, y_target, x_inputs, bad_word="death"):
 
     return data_df[~data_df.index.isin(indices)]
 
+
 def build_vocab(
     data_df,
     feat_colnames,
@@ -106,11 +108,11 @@ def build_vocab(
     pos_labs_vocab=True,
 ):
     """
-    Create a vocabulary: This maps all events to an index, including 
+    Create a vocabulary: This maps all events to an index, including
     <pad> : index 0, sentence padding
     <unk> : index 1, unknown events
     nan : index 2, no events
-    
+
     Arguments:
     ----------
         data_df (dataframe) : containing features & target
@@ -119,10 +121,10 @@ def build_vocab(
         min_freq (int) : minimum frequency for vocab
         specials (list) : special characters (padding, unknown)
         pos_labs_vocab (bool) : to use only words from minority/pos class
-        
+
     Returns:
     --------
-        vocab (Vocab) 
+        vocab (Vocab)
     """
 
     def build_counter(data_df, feat_colnames):

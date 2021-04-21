@@ -14,17 +14,18 @@ class Attn(nn.Module):
         super(Attn, self).__init__()
         self.h_dim = 2 * h_dim
         self.main = nn.Sequential(
-            nn.Linear(self.h_dim, 16),
-            nn.ReLU(True),
-            nn.Linear(16,1)
+            nn.Linear(self.h_dim, 16), nn.ReLU(True), nn.Linear(16, 1)
         )
 
     def forward(self, encoder_outputs):
         b_size = encoder_outputs.size(0)
-        
 
-        attn_ene = self.main(encoder_outputs.view(-1, self.h_dim)) # (b, s, h) -> (b * s, 1)
-        return F.softmax(attn_ene.view(b_size, -1), dim=1).unsqueeze(2) # (b*s, 1) -> (b, s, 1)
+        attn_ene = self.main(
+            encoder_outputs.view(-1, self.h_dim)
+        )  # (b, s, h) -> (b * s, 1)
+        return F.softmax(attn_ene.view(b_size, -1), dim=1).unsqueeze(
+            2
+        )  # (b*s, 1) -> (b, s, 1)
 
 
 class SelfAttentionLSTM(SimpleLSTM):
@@ -59,7 +60,7 @@ class SelfAttentionLSTM(SimpleLSTM):
         self.bidi = bidi
         self.nlayers = nlayers
         self.linear_bias = linear_bias
-        
+
         self.self_att = Attn(hidden_dim)
 
         """
@@ -101,7 +102,7 @@ class SelfAttentionLSTM(SimpleLSTM):
         )
         """
         self.init_weights()
-        
+
         self.self_att = self.self_att.to(device)
 
     def forward(self, tokens, ret_attn=False):
@@ -143,7 +144,7 @@ class SelfAttentionLSTM(SimpleLSTM):
         else:
             out = output[:, -1, :]
 
-        '''
+        """
         
         # Switch to multiplicative attention
         mask_feats = np.array(tokens.cpu().numpy() == 0)
@@ -180,18 +181,18 @@ class SelfAttentionLSTM(SimpleLSTM):
         # dbg.set_trace()
         concat_out = torch.cat((context, out), dim=1)
         #concat_out = context
-        '''
-        
-        ''' Self attention'''
-        
-        #print(f"output: {output.shape}")
-        
-        attns = self.self_att(output) 
-        
-        #print(f"attns: {attns.shape}")
-        feats = (torch.bmm(output.transpose(1, 2), attns)) #.sum(dim=1)
-        #print(f"feats: {feats.shape}")
-        
+        """
+
+        """ Self attention"""
+
+        # print(f"output: {output.shape}")
+
+        attns = self.self_att(output)
+
+        # print(f"attns: {attns.shape}")
+        feats = torch.bmm(output.transpose(1, 2), attns)  # .sum(dim=1)
+        # print(f"feats: {feats.shape}")
+
         if self.dpt is not None:
             pred = self.pred_layer(self.dpt(feats.squeeze(-1)))
         else:
@@ -201,7 +202,6 @@ class SelfAttentionLSTM(SimpleLSTM):
 
             return pred, attns
         return pred
- 
 
     def forward_shap(self, token_ids, mask, full_id_matrix=False):
         token_ids = token_ids if token_ids.is_cuda else token_ids.to(self.device)
@@ -253,8 +253,7 @@ class SelfAttentionLSTM(SimpleLSTM):
         ).squeeze(-1)
 
         concat_out = torch.cat((context, out), dim=1)
-        #concat_out = context
+        # concat_out = context
         pred = self.pred_layer(concat_out)
 
         return pred
-
