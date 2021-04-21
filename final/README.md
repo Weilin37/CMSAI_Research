@@ -1,9 +1,13 @@
 # CMSAI_Research
 This repository contains source code related to Merck/CMSAI PoC Engagement.
 
-To get more information about the submitted paper associated with the engagement, please [click here](##Paper/Link/here)
+It is organized in two different but similar directories:
+* [competition/](competition/): Contains all the code used during the CMSAI challenge on predicting adverse events and hospital readmissions from claims data. 
+    * [competition/data/](competition/data/): contains codes related to data preparation and preprocessing
+    * [competition/model/](competition/model/): contain codes related to models development (XGBoost, LSTM, Transformer)
+* [explainability/](explainability/): stores the code related not only to models development (XGBoost & Attention-based LSTM) but also to computing feature importances using different explainability methods (SHAP, LRP, Attention, etc.). You can read [this conference paper](link/here/) to get more insights about this work.
 
-It is organized as shown below.
+The detailed code organization is shown below.
 
 # Directory Structure
 ```
