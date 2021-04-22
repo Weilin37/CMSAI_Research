@@ -63,12 +63,6 @@ class SelfAttentionLSTM(SimpleLSTM):
 
         self.self_att = Attn(hidden_dim)
 
-        """
-        self.attn_layer = (
-            nn.Linear(hidden_dim *2, 1, bias=linear_bias) 
-            if bidi else nn.Linear(hidden_dim, 1, bias=linear_bias)
-        )
-        """
         if dropout is None:
             self.lstm = nn.LSTM(
                 input_size=emb_dim,
@@ -95,12 +89,6 @@ class SelfAttentionLSTM(SimpleLSTM):
 
         self.dpt = nn.Dropout(dropout)
 
-        """
-        self.context_layer = (
-            nn.Linear(hidden_dim * 2, 1, bias=linear_bias) 
-            if bidi else nn.Linear(hidden_dim, 1, bias=linear_bias)
-        )
-        """
         self.init_weights()
 
         self.self_att = self.self_att.to(device)
@@ -144,47 +132,7 @@ class SelfAttentionLSTM(SimpleLSTM):
         else:
             out = output[:, -1, :]
 
-        """
-        
-        # Switch to multiplicative attention
-        mask_feats = np.array(tokens.cpu().numpy() == 0)
-        mask_feats = -1000 * mask_feats.astype(np.int)
-
-        mask_feats = torch.Tensor(mask_feats).to(self.device)
-
-        # 1/6: reverse order of output
-        # rev_idx = [idx for idx in range(output.shape[1]-1, -1, -1)]
-        # import IPython
-        # dbg = IPython.core.debugger.Pdb()
-        # dbg.set_trace()
-        # output = torch.cat(
-        #    (output[:, :, :self.hidden_dim],
-        #    output[:, rev_idx, self.hidden_dim:]),
-        #    dim=-1
-        # )
-
-        attn_weights_int = torch.bmm(output, out.unsqueeze(2)).squeeze(2) / (
-            (tokens.shape[1]) ** 0.5
-        )
-        attn_weights = nn.functional.softmax(attn_weights_int + mask_feats, -1)
-
-        context = torch.bmm(output.transpose(1, 2), attn_weights.unsqueeze(-1)).squeeze(
-            -1
-        )
-
-        # attention = self.context_layer(output).squeeze(-1)
-        # att_weights = nn.functional.softmax(attention + mask_feats, dim=-1)
-        # context = torch.bmm(att_weights.unsqueeze(1), output).squeeze(1)
-        # import IPython.core.debugger
-
-        # dbg = IPython.core.debugger.Pdb()
-        # dbg.set_trace()
-        concat_out = torch.cat((context, out), dim=1)
-        #concat_out = context
-        """
-
         """ Self attention"""
-
         # print(f"output: {output.shape}")
 
         attns = self.self_att(output)
@@ -232,16 +180,7 @@ class SelfAttentionLSTM(SimpleLSTM):
             )
         else:
             out = output[:, -1, :]
-        # import IPython.core.debugger
 
-        # dbg = IPython.core.debugger.Pdb()
-        # dbg.set_trace()
-
-        # print(f'Stacked hidden dimensions: {stacked_hidden.shape}')
-        # print(f'mask weight dimensions: {mask_feats.shape}')
-        # attention = self.context_layer(output).squeeze(-1)
-        # att_weights = nn.functional.softmax(attention, dim=-1)
-        # context = torch.bmm(att_weights.unsqueeze(1), output).squeeze(1)
         attn_weights = torch.bmm(output, out.unsqueeze(2)).squeeze(2) / (
             sum(mask) ** 0.5
         )
