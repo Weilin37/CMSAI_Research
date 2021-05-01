@@ -1,6 +1,7 @@
 # CMSAI_Research
 This repository contains source code related to Merck/CMSAI PoC Engagement.
 
+# Code Organization
 It is organized in two different but similar directories:
 * [competition/](competition/): Contains all the code used during the CMSAI challenge on predicting adverse events and hospital readmissions from claims data. 
     * [competition/data/](competition/data/): contains codes related to data preparation and preprocessing
